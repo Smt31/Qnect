@@ -175,7 +175,7 @@ const ChatPage = () => {
 
                 {/* Chat Layout */}
                 <div className="flex-1 md:ml-64 flex h-[calc(100vh-64px)]">
-                    <div className={`${selectedUser ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 md:flex-none h-full`}>
+                    <div className={`${selectedUser ? 'hidden md:flex' : 'flex'} w-full md:w-80 md:flex-none h-full`}>
                         <ConversationList
                             conversations={conversations}
                             selectedUser={selectedUser}
