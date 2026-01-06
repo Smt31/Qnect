@@ -104,6 +104,7 @@ const Navbar = ({ user }) => {
                   <div className="px-4 py-2 border-b border-gray-50 mb-1">
                     <p className="text-sm font-medium text-gray-900 truncate">{user?.fullName || 'User'}</p>
                     <p className="text-xs text-gray-500 truncate">@{user?.username || 'username'}</p>
+                    <p className="text-xs text-gray-600 mt-1">Reputation: {user?.reputation || 0}</p>
                   </div>
 
                   <button

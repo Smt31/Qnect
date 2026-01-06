@@ -1,64 +1,66 @@
 package com.example.Qpoint.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.Transformation;
+import com.cloudinary.utils.ObjectUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.util.StringUtils;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.UUID;
+import java.util.Map;
 
 @Service
 public class FileStorageService {
 
-    private final Path rootLocation = Paths.get("uploads");
+    private final Cloudinary cloudinary;
 
-    public FileStorageService() {
-        try {
-            Files.createDirectories(rootLocation);
-        } catch (IOException e) {
-            throw new RuntimeException("Could not initialize storage location", e);
-        }
+    public FileStorageService(Cloudinary cloudinary) {
+        this.cloudinary = cloudinary;
     }
 
     public String store(MultipartFile file) {
-        String filename = StringUtils.cleanPath(file.getOriginalFilename());
-        
         try {
-            if (file.isEmpty()) {
-                throw new RuntimeException("Failed to store empty file " + filename);
-            }
-            if (filename.contains("..")) {
-                // This is a security check
-                throw new RuntimeException(
-                        "Cannot store file with relative path outside current directory " + filename);
-            }
+            // Validate file
+            validateFile(file);
 
-            // Generate a unique filename to avoid conflicts and handle potential weird characters
-            String extension = "";
-            int i = filename.lastIndexOf('.');
-            if (i >= 0) {
-                extension = filename.substring(i);
-            }
-            String uniqueFilename = UUID.randomUUID().toString() + extension;
+            // Upload to Cloudinary
+            Map uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", "qpoint/",
+                            "resource_type", "auto",
+                            "use_filename", true,
+                            "unique_filename", true
+                    )
+            );
 
-            try (InputStream inputStream = file.getInputStream()) {
-                Files.copy(inputStream, this.rootLocation.resolve(uniqueFilename),
-                    StandardCopyOption.REPLACE_EXISTING);
-            }
-            
-            return uniqueFilename;
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Failed to store file " + filename, e);
+            // Return the public URL
+            return (String) uploadResult.get("secure_url");
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload file to Cloudinary", e);
         }
     }
 
-    public Path load(String filename) {
-        return rootLocation.resolve(filename);
+    private void validateFile(MultipartFile file) {
+        // Validate file size (max 10MB)
+        if (file.getSize() > 10 * 1024 * 1024) {
+            throw new RuntimeException("File size exceeds 10MB limit");
+        }
+
+        // Validate file type
+        String contentType = file.getContentType();
+        if (contentType != null && !isValidImageType(contentType)) {
+            throw new RuntimeException("Invalid file type. Only images are allowed.");
+        }
+    }
+
+    private boolean isValidImageType(String contentType) {
+        return contentType != null && (
+                contentType.startsWith("image/jpeg") ||
+                        contentType.startsWith("image/jpg") ||
+                        contentType.startsWith("image/png") ||
+                        contentType.startsWith("image/gif") ||
+                        contentType.startsWith("image/webp")
+        );
     }
 }

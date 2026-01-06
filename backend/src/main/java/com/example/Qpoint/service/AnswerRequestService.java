@@ -67,6 +67,10 @@ public class AnswerRequestService {
 
         answerRequestRepository.save(request);
 
+        // Add reputation to expert for receiving answer request (+5)
+        expert.setReputation(expert.getReputation() + 5);
+        userRepository.save(expert);
+
         // Notify expert
         notificationService.createNotification(
                 expertId,

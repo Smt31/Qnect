@@ -105,6 +105,10 @@ public class PostService {
             }
         }
 
+        // Add reputation for posting a question (+3)
+        author.setReputation(author.getReputation() + 3);
+        userRepository.save(author);
+
         return postRepository.save(post);
     }
 
@@ -292,6 +296,12 @@ public class PostService {
                 postViewRepository.save(view);
 
                 post.setViewsCount(post.getViewsCount() + 1);
+                
+                // Add reputation to post author for unique view (+1)
+                User postAuthor = post.getAuthor();
+                postAuthor.setReputation(postAuthor.getReputation() + 1);
+                userRepository.save(postAuthor);
+                
                 postRepository.save(post);
             }
         }
@@ -344,8 +354,15 @@ public class PostService {
                      com.example.Qpoint.models.Vote.EntityType.QUESTION, 
                      post.getId());
              dto.setCurrentUserVoteStatus(vote.map(v -> v.getVoteType().name()).orElse("NONE"));
+             
+             // Check if post is bookmarked by user
+             boolean isBookmarked = bookmarkRepository.existsByUserAndPost(
+                     userRepository.getReferenceById(userId), 
+                     post);
+             dto.setIsBookmarked(isBookmarked);
         } else {
             dto.setCurrentUserVoteStatus("NONE");
+            dto.setIsBookmarked(false);
         }
 
         return dto;

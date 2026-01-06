@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,17 +23,22 @@ public class FileUploadController {
 
     @PostMapping
     public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file) {
-        String filename = fileStorageService.store(file);
-
-        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/uploads/")
-                .path(filename)
-                .toUriString();
+        String imageUrl = fileStorageService.store(file);
 
         Map<String, String> response = new HashMap<>();
-        response.put("url", fileDownloadUri);
-        response.put("filename", filename);
+        response.put("url", imageUrl);
+        response.put("filename", extractFilenameFromUrl(imageUrl));
 
         return ResponseEntity.ok(response);
+    }
+
+    private String extractFilenameFromUrl(String url) {
+        // Extract filename from Cloudinary URL
+        int lastSlashIndex = url.lastIndexOf('/');
+        int lastDotIndex = url.lastIndexOf('.');
+        if (lastSlashIndex != -1 && lastDotIndex > lastSlashIndex) {
+            return url.substring(lastSlashIndex + 1);
+        }
+        return url.substring(lastSlashIndex + 1);
     }
 }

@@ -21,6 +21,7 @@ public class FeedPostDto {
     private Instant createdAt;
     private String type;
     private String currentUserVoteStatus;
+    private Boolean isBookmarked;
     
     @Data
     public static class AuthorDto {

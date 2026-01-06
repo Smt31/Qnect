@@ -51,6 +51,9 @@ public class AnswerService {
         
         // Update user answer count
         author.setAnswersCount(author.getAnswersCount() + 1);
+        
+        // Add reputation for posting an answer (+3)
+        author.setReputation(author.getReputation() + 3);
         userRepository.save(author);
 
         return convertToDto(saved);

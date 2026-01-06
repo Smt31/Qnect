@@ -169,6 +169,13 @@ public class VoteService {
             Post post = (Post) entity;
             if (voteType == Vote.VoteType.UPVOTE) {
                 post.setUpvotes(post.getUpvotes() + (1 * multiplier));
+                
+                // Add reputation for receiving upvote (+2) when adding upvote
+                if (isAdding) {
+                    User postAuthor = post.getAuthor();
+                    postAuthor.setReputation(postAuthor.getReputation() + 2);
+                    userRepository.save(postAuthor);
+                }
             } else if (voteType == Vote.VoteType.DOWNVOTE) {
                 post.setDownvotes(post.getDownvotes() + (1 * multiplier));
             }
@@ -188,6 +195,13 @@ public class VoteService {
             Answer answer = (Answer) entity;
             if (voteType == Vote.VoteType.UPVOTE) {
                 answer.setUpvotes(answer.getUpvotes() + (1 * multiplier));
+                
+                // Add reputation for receiving upvote (+2) when adding upvote
+                if (isAdding) {
+                    User answerAuthor = answer.getAuthor();
+                    answerAuthor.setReputation(answerAuthor.getReputation() + 2);
+                    userRepository.save(answerAuthor);
+                }
             } else if (voteType == Vote.VoteType.DOWNVOTE) {
                 answer.setDownvotes(answer.getDownvotes() + (1 * multiplier));
             }
@@ -196,6 +210,13 @@ public class VoteService {
             Comment comment = (Comment) entity;
             if (voteType == Vote.VoteType.UPVOTE) {
                 comment.setUpvotes(comment.getUpvotes() + (1 * multiplier));
+                
+                // Add reputation for receiving upvote (+2) when adding upvote
+                if (isAdding) {
+                    User commentAuthor = comment.getAuthor();
+                    commentAuthor.setReputation(commentAuthor.getReputation() + 2);
+                    userRepository.save(commentAuthor);
+                }
             } else if (voteType == Vote.VoteType.DOWNVOTE) {
                 comment.setDownvotes(comment.getDownvotes() + (1 * multiplier));
             }

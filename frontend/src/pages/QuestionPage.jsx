@@ -117,7 +117,6 @@ export default function QuestionPage() {
       // We don't need to refresh counts immediately if we trust our logic, 
       // but refreshing ensures eventual consistency.
       // We can do it silently in background or skip it.
-      // Let's skip refresh for instant feel, or do it after a delay?
       // Better to rely on optimistic state for "instant" feel.
     } catch (e) {
       console.error('Vote failed', e);
@@ -128,16 +127,22 @@ export default function QuestionPage() {
   };
 
   const handleBookmarkToggle = async () => {
+    // Capture current bookmark status BEFORE optimistic update
+    const wasBookmarked = bookmarked;
+    
+    // Optimistic update
+    setBookmarked(!wasBookmarked);
+    
     try {
-      if (bookmarked) {
+      if (wasBookmarked) {
         await bookmarkApi.unbookmarkPost(questionId);
-        setBookmarked(false);
       } else {
         await bookmarkApi.bookmarkPost(questionId);
-        setBookmarked(true);
       }
     } catch (e) {
-      console.error(e);
+      console.error('Bookmark toggle failed:', e);
+      // Revert to original state on error
+      setBookmarked(wasBookmarked);
     }
   };
 
@@ -335,8 +340,28 @@ export default function QuestionPage() {
                 <span>{voteCounts.downvotes || 0}</span>
               </button>
 
-              <div className="text-gray-400 text-sm ml-auto">
-                {question.viewsCount || 0} views
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5 text-gray-500">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                  <span className="text-sm">{question.commentsCount || 0} Answers</span>
+                </div>
+                <div className="text-gray-400 text-sm">
+                  {question.viewsCount || 0} views
+                </div>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <button
+                    className="flex items-center gap-1.5 text-gray-500 hover:text-red-600 text-sm font-medium transition-colors"
+                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/question/${question.id}`)}
+                    title="Copy link"
+                  >
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    <span className="hidden sm:inline">Share</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

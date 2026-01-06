@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAuthToken, feedApi, voteApi, userApi, questionApi, API_URL } from '../api';
+import { getAuthToken, feedApi, voteApi, userApi, questionApi, bookmarkApi, API_URL } from '../api';
 import Navbar from '../components/Home/Navbar';
 import FeedImage from '../components/FeedImage';
 import LeftSidebar from '../components/Home/LeftSidebar';
@@ -206,6 +206,61 @@ export default function HomePage() {
       }));
     } catch (error) {
       console.error('Error following user:', error);
+    }
+  };
+
+  const handleBookmark = async (postId) => {
+    // Capture current bookmark status BEFORE optimistic update
+    const post = feedData?.feed?.find(p => p.id === postId);
+    const wasBookmarked = post?.isBookmarked || false;
+
+    console.log('Bookmark clicked for post:', postId);
+    console.log('Current bookmark status:', wasBookmarked);
+    console.log('Will toggle to:', !wasBookmarked);
+
+    // Optimistic update on feedData - toggle bookmark
+    setFeedData(prevData => {
+      if (!prevData) return prevData;
+
+      const newFeed = prevData.feed.map(post => {
+        if (post.id !== postId) return post;
+
+        return {
+          ...post,
+          isBookmarked: !wasBookmarked
+        };
+      });
+
+      return { ...prevData, feed: newFeed };
+    });
+
+    try {
+      // Make API call based on captured status
+      if (wasBookmarked) {
+        console.log('Calling unbookmarkPost API');
+        await bookmarkApi.unbookmarkPost(postId);
+      } else {
+        console.log('Calling bookmarkPost API');
+        await bookmarkApi.bookmarkPost(postId);
+      }
+      console.log('Bookmark API call successful');
+    } catch (e) {
+      console.error('Bookmark toggle failed:', e);
+      // Revert to original state on error
+      setFeedData(prevData => {
+        if (!prevData) return prevData;
+
+        const newFeed = prevData.feed.map(post => {
+          if (post.id !== postId) return post;
+
+          return {
+            ...post,
+            isBookmarked: wasBookmarked
+          };
+        });
+
+        return { ...prevData, feed: newFeed };
+      });
     }
   };
 
@@ -710,6 +765,22 @@ export default function HomePage() {
                     currentUserId={feedData.user?.userId}
                     onVote={handleVote}
                     onDelete={handleDeletePost}
+                    topRightElement={
+                      <button
+                        className={`flex flex-col items-center justify-center w-10 h-10 rounded-full border transition-all ${post.isBookmarked
+                          ? 'bg-yellow-50 text-yellow-500 border-yellow-200'
+                          : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBookmark(post.id);
+                        }}
+                        title={post.isBookmarked ? "Remove Bookmark" : "Bookmark"}
+                      >
+                        <svg className="w-5 h-5" fill={post.isBookmarked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                        </svg>
+                      </button>
+                    }
                   />
                 ))
             ) : (
