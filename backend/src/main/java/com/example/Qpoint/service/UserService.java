@@ -45,6 +45,10 @@ public class UserService {
         return convertToUserProfileDto(user);
     }
 
+    public boolean isUsernameTaken(String username) {
+        return userRepository.existsByUsername(username);
+    }
+
     @Transactional
     public User registerUser(String username, String email, String password, String fullName) {
         if (userRepository.existsByEmail(email)) {

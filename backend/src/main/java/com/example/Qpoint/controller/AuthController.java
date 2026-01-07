@@ -62,6 +62,15 @@ public class AuthController {
         );
     }
 
+    @GetMapping("/check-username/{username}")
+    public ResponseEntity<?> checkUsernameAvailability(@PathVariable String username) {
+        boolean isTaken = userService.isUsernameTaken(username);
+        return ResponseEntity.ok(java.util.Map.of(
+                "available", !isTaken,
+                "username", username
+        ));
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
         try {

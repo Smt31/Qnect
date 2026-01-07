@@ -104,6 +104,9 @@ export const authApi = {
 
   verifyOtp: (payload) =>
     post("/auth/verify-otp", payload),
+
+  checkUsername: (username) =>
+    get(`/auth/check-username/${encodeURIComponent(username)}`),
 };
 
 export const feedApi = {
