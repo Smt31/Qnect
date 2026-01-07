@@ -279,116 +279,124 @@ export default function ProfilePage() {
           <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             {/* Left Column (Profile & Feed) */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-4">
 
-              {/* Header Card */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative">
-                <div className="h-32 bg-gradient-to-r from-red-400 to-pink-500"></div>
-                <div className="px-6 pb-6">
-                  <div className="flex flex-col md:flex-row items-end -mt-12 mb-4 gap-4">
-                    <div className="w-24 h-24 rounded-full border-4 border-white bg-white shadow-md overflow-hidden flex-shrink-0">
+              {/* Header Card with Integrated Tabs */}
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                {/* Cover */}
+                <div className="h-28 bg-gradient-to-r from-rose-400 to-pink-500"></div>
+
+                {/* Profile Info */}
+                <div className="px-5 pb-4">
+                  <div className="flex flex-col md:flex-row items-start md:items-end -mt-10 gap-4">
+                    {/* Avatar */}
+                    <div className="w-20 h-20 rounded-full border-4 border-white bg-white shadow-md overflow-hidden flex-shrink-0">
                       {profileUser.avatarUrl ? (
                         <img src={profileUser.avatarUrl} alt={profileUser.fullName} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-gray-100 flex items-center justify-center text-3xl font-bold text-gray-400">
+                        <div className="w-full h-full bg-gradient-to-br from-rose-400 to-rose-500 flex items-center justify-center text-2xl font-bold text-white">
                           {profileUser.fullName?.[0]}
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 mb-2">
-                      <h1 className="text-2xl font-bold text-gray-900">{profileUser.fullName}</h1>
-                      <p className="text-gray-500">@{profileUser.username}</p>
-                    </div>
-                    <div className="mb-2 flex gap-2">
-                      {isMe ? (
-                        <button
-                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
-                          onClick={() => navigate('/settings')}
-                        >
-                          Edit Profile
-                        </button>
-                      ) : (
-                        <>
+
+                    {/* Name & Actions */}
+                    <div className="flex-1 flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-2">
+                      <div>
+                        <h1 className="text-xl font-bold text-gray-900">{profileUser.fullName}</h1>
+                        <p className="text-gray-500 text-sm">@{profileUser.username}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        {isMe ? (
                           <button
-                            className={`px-4 py-2 font-medium rounded-lg transition-all shadow-sm ${isFollowingProfile
-                              ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                              : 'bg-red-500 hover:bg-red-600 text-white'
-                              }`}
-                            onClick={handleFollowProfile}
+                            className="px-4 py-2 text-sm bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-colors"
+                            onClick={() => navigate('/settings')}
                           >
-                            {isFollowingProfile ? 'Following' : 'Follow'}
+                            Edit Profile
                           </button>
-                          {profileUser.allowPublicMessages && (
+                        ) : (
+                          <>
                             <button
-                              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
-                              onClick={() => navigate('/chat')}
+                              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${isFollowingProfile
+                                ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                                : 'bg-rose-500 hover:bg-rose-600 text-white'
+                                }`}
+                              onClick={handleFollowProfile}
                             >
-                              Message
+                              {isFollowingProfile ? 'Following' : 'Follow'}
                             </button>
-                          )}
-                        </>
-                      )}
+                            {profileUser.allowPublicMessages && (
+                              <button
+                                className="px-4 py-2 text-sm bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
+                                onClick={() => navigate('/chat')}
+                              >
+                                Message
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {profileUser.bio && (
-                    <p className="text-gray-700 mb-4 max-w-2xl">{profileUser.bio}</p>
+                    <p className="text-gray-600 text-sm mt-3 max-w-xl">{profileUser.bio}</p>
                   )}
 
+                  {/* Stats Row */}
+                  <div className="flex items-center gap-5 mt-4 text-sm">
+                    <div>
+                      <span className="font-semibold text-gray-900">{stats?.questions}</span>
+                      <span className="text-gray-500 ml-1">Posts</span>
+                    </div>
+                    <div className="cursor-pointer hover:text-rose-500 transition-colors" onClick={() => setActiveTab('followers')}>
+                      <span className="font-semibold text-gray-900">{stats?.followers}</span>
+                      <span className="text-gray-500 ml-1">Followers</span>
+                    </div>
+                    <div className="cursor-pointer hover:text-rose-500 transition-colors" onClick={() => setActiveTab('following')}>
+                      <span className="font-semibold text-gray-900">{stats?.following}</span>
+                      <span className="text-gray-500 ml-1">Following</span>
+                    </div>
+                    <div className="ml-auto">
+                      <span className="font-semibold text-gray-900">{stats?.reputation}</span>
+                      <span className="text-gray-500 ml-1">Rep</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-6 border-t border-gray-100 pt-4 text-sm">
-                  <div className="text-center md:text-left">
-                    <span className="font-bold text-gray-900 block md:inline md:mr-1">{stats?.questions}</span>
-                    <span className="text-gray-500">Posts</span>
-                  </div>
-                  <div className="text-center md:text-left cursor-pointer hover:text-red-600 transition-colors" onClick={() => setActiveTab('followers')}>
-                    <span className="font-bold text-gray-900 block md:inline md:mr-1">{stats?.followers}</span>
-                    <span className="text-gray-500">Followers</span>
-                  </div>
-                  <div className="text-center md:text-left cursor-pointer hover:text-red-600 transition-colors" onClick={() => setActiveTab('following')}>
-                    <span className="font-bold text-gray-900 block md:inline md:mr-1">{stats?.following}</span>
-                    <span className="text-gray-500">Following</span>
-                  </div>
-                  <div className="text-center md:text-left ml-auto">
-                    <span className="font-bold text-gray-900 block md:inline md:mr-1">{stats?.reputation}</span>
-                    <span className="text-gray-500">Reputation</span>
-                  </div>
+                {/* Tabs - Inside the card */}
+                <div className="flex border-t border-gray-100 px-5">
+                  {['overview', 'posts', 'followers', 'following'].concat(isMe ? ['requests'] : []).map((tab) => (
+                    <button
+                      key={tab}
+                      className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors capitalize ${activeTab === tab
+                        ? 'border-rose-500 text-rose-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
+                      onClick={() => setActiveTab(tab)}
+                    >
+                      {tab}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Tabs */}
-              <div className="flex border-t border-gray-200 px-6">
-                {['overview', 'posts', 'followers', 'following'].concat(isMe ? ['requests'] : []).map((tab) => (
-                  <button
-                    key={tab}
-                    className={`py-4 mr-8 text-sm font-medium border-b-2 transition-colors capitalize ${activeTab === tab
-                      ? 'border-red-500 text-red-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                      }`}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
 
-
-              {/* Content Area (Inside Left Column) */}
-              <div className="space-y-4">
+              {/* Content Area */}
+              <div>
                 {activeTab === 'overview' && (
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center text-gray-500 py-12">
-                    <p>Overview stats and highlights coming soon.</p>
-                    <button className="text-red-500 font-medium mt-2" onClick={() => setActiveTab('posts')}>View Posts</button>
+                  <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+                    <p className="text-gray-500">Overview stats and highlights coming soon.</p>
+                    <button className="text-rose-500 font-medium mt-2 text-sm" onClick={() => setActiveTab('posts')}>View Posts</button>
                   </div>
                 )}
 
                 {activeTab === 'posts' && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {questions.length > 0 ? questions.map(q => (
                       <CompactFeedCard key={q.id} post={q} />
                     )) : (
-                      <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-gray-200">
+                      <div className="text-center py-10 text-gray-500 bg-white rounded-xl shadow-sm">
                         No posts yet.
                       </div>
                     )}
@@ -543,21 +551,21 @@ export default function ProfilePage() {
             <div className="hidden lg:block space-y-6">
 
               {/* Topics / Expertise Card */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="bg-white rounded-2xl shadow-sm border border-rose-100 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-gray-900">Expertise / Interests</h3>
                   {isMe && !isEditingTopics && (
-                    <button onClick={() => setIsEditingTopics(true)} className="text-xs text-red-500 font-medium hover:underline">Edit</button>
+                    <button onClick={() => setIsEditingTopics(true)} className="text-xs text-rose-500 font-medium hover:text-rose-600 transition-colors">Edit</button>
                   )}
                 </div>
 
                 {isEditingTopics ? (
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100">
                     <div className="flex flex-wrap gap-2 mb-3">
                       {topics.map(t => (
-                        <span key={t} className="bg-white border border-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs flex items-center gap-1">
+                        <span key={t} className="bg-white border border-rose-200 text-gray-700 px-3 py-1.5 rounded-full text-xs flex items-center gap-1 shadow-sm">
                           {t}
-                          <button onClick={() => handleRemoveTopic(t)} className="text-gray-400 hover:text-red-500 font-bold ml-1">×</button>
+                          <button onClick={() => handleRemoveTopic(t)} className="text-gray-400 hover:text-rose-500 font-bold ml-1 transition-colors">×</button>
                         </span>
                       ))}
                     </div>
@@ -568,25 +576,31 @@ export default function ProfilePage() {
                         onChange={(e) => setNewTopic(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddTopic()}
                         placeholder="Add topic..."
-                        className="flex-1 text-sm border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                        className="flex-1 text-sm border-rose-200 rounded-lg focus:ring-rose-500 focus:border-rose-500"
                       />
-                      <button onClick={handleAddTopic} className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-sm hover:bg-gray-300">Add</button>
+                      <button onClick={handleAddTopic} className="px-4 py-2 bg-white border border-rose-200 text-gray-700 rounded-lg text-sm hover:bg-rose-50 transition-colors">Add</button>
                     </div>
-                    <div className="mt-3 flex gap-2 justify-end">
-                      <button onClick={() => { setIsEditingTopics(false); setTopics(profileUser.skills || []); }} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
-                      <button onClick={handleSaveTopics} className="text-xs bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600">Save</button>
+                    <div className="mt-4 flex gap-2 justify-end">
+                      <button onClick={() => { setIsEditingTopics(false); setTopics(profileUser.skills || []); }} className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
+                      <button onClick={handleSaveTopics} className="px-4 py-1.5 text-xs bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg hover:shadow-md transition-all">Save</button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {topics.length > 0 ? topics.map(t => (
-                      <span key={t} className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-medium cursor-default">
+                      <span key={t} className="bg-gradient-to-r from-rose-50 to-rose-100 text-rose-600 px-3 py-1.5 rounded-full text-xs font-medium cursor-default border border-rose-200">
                         #{t}
                       </span>
                     )) : (
-                      <div className="text-center py-4">
-                        <span className="text-gray-400 text-sm italic">No topics added yet.</span>
-                        {isMe && <button onClick={() => setIsEditingTopics(true)} className="block mx-auto mt-2 text-red-500 text-xs hover:underline">Add Topics</button>}
+                      <div className="text-center py-6 w-full">
+                        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-br from-rose-100 to-rose-50 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-rose-400">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
+                          </svg>
+                        </div>
+                        <span className="text-gray-400 text-sm">No topics added yet.</span>
+                        {isMe && <button onClick={() => setIsEditingTopics(true)} className="block mx-auto mt-2 text-rose-500 text-xs font-medium hover:text-rose-600 transition-colors">Add Topics</button>}
                       </div>
                     )}
                   </div>

@@ -79,7 +79,6 @@
 			<optional>true</optional>
 		</dependency>
 
-		<!-- ✅ ONE test dependency (THIS IS ENOUGH) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
@@ -105,17 +104,6 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- dotenv -->
-		<dependency>
-			<groupId>io.github.cdimascio</groupId>
-			<artifactId>dotenv-java</artifactId>
-			<version>3.0.0</version>
-		</dependency>
-		<dependency>
-			<groupId>me.paulschwarz</groupId>
-			<artifactId>spring-dotenv</artifactId>
-			<version>2.5.4</version>
-		</dependency>
 
 		<dependency>
 			<groupId>com.cloudinary</groupId>
