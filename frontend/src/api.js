@@ -20,13 +20,20 @@ const buildHeaders = (includeAuth = false) => {
 };
 
 const handleResponse = async (res) => {
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(data?.message || "Request failed");
+  // For successful responses with content
+  if (res.ok && res.status !== 204) {
+    const data = await res.json().catch(() => ({}));
+    return data;
   }
-
-  return data;
+  
+  // For successful responses without content (like DELETE)
+  if (res.ok && res.status === 204) {
+    return {};
+  }
+  
+  // For error responses
+  const errorData = await res.json().catch(() => ({}));
+  throw new Error(errorData?.message || errorData?.error || "Request failed");
 };
 
 export const post = async (path, body, includeAuth = false) => {

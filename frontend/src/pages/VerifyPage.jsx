@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { authApi } from '../api';
+import { queryClient } from '../App';
 import './AuthPages.css';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -153,6 +154,15 @@ export default function VerifyPage() {
 
       const res = await authApi.verifyOtp(payload);
       if (res.success && res.accessToken) {
+        // CRITICAL: Clear ALL cached data before setting new user
+        queryClient.clear();
+
+        // Clear old localStorage data
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('email');
+        localStorage.removeItem('username');
+
         // Save token and basic user info to localStorage
         localStorage.setItem('token', res.accessToken);
         if (res.userId != null) {

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { bookmarkApi, getAuthToken, userApi, voteApi, questionApi } from '../api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getAuthToken } from '../api';
+import { useQuestion, useCurrentUser, useQuestionVoteCounts, useQuestionVoteStatus, useVoteQuestion, useBookmarkPost, useUnbookmarkPost, useBookmarkStatus } from '../api/queryHooks';
 import Navbar from '../components/Home/Navbar';
 import FeedImage from '../components/FeedImage';
 import CommentList from '../components/Question/CommentList';
@@ -11,16 +13,14 @@ export default function QuestionPage() {
   const params = useParams();
   const questionId = useMemo(() => Number(params.id), [params.id]);
 
-  const [me, setMe] = useState(null);
-  const [question, setQuestion] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data: question, isLoading: questionLoading, isError: questionError, refetch } = useQuestion(questionId);
+  const { data: me } = useCurrentUser();
+  const { data: voteCounts, isLoading: votesLoading } = useQuestionVoteCounts(questionId);
+  const { data: voteStatus = 'NONE', isLoading: voteStatusLoading } = useQuestionVoteStatus(questionId);
+  const { data: bookmarked = false, isLoading: bookmarkLoading } = useBookmarkStatus(questionId);
+
   const [error, setError] = useState('');
-
-  const [bookmarked, setBookmarked] = useState(false);
   const [followingAuthor, setFollowingAuthor] = useState(false);
-
-  const [voteStatus, setVoteStatus] = useState('NONE');
-  const [voteCounts, setVoteCounts] = useState({ upvotes: 0, downvotes: 0 });
 
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
@@ -30,119 +30,56 @@ export default function QuestionPage() {
       navigate('/login', { replace: true });
       return;
     }
-
-    void bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questionId]);
+  }, []);
 
-  const bootstrap = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const [meRes, qRes] = await Promise.all([
-        userApi.getCurrentUser(),
-        questionApi.getQuestion(questionId),
-      ]);
-
-      setMe(meRes);
-      setQuestion(qRes);
-
-      const [counts, status] = await Promise.all([
-        voteApi.getQuestionVoteCounts(questionId),
-        voteApi.getQuestionVoteStatus(questionId),
-      ]);
-      setVoteCounts(counts);
-      setVoteStatus(status || 'NONE');
-
-      const bmStatus = await bookmarkApi.isBookmarked(questionId).catch(() => false);
-      setBookmarked(Boolean(bmStatus));
-
-      if (qRes?.author?.id && meRes?.userId && qRes.author.id !== meRes.userId) {
+  // Load follow status separately
+  useEffect(() => {
+    const loadFollowStatus = async () => {
+      if (question?.author?.id && me?.userId && question.author.id !== me.userId) {
         try {
-          const followStatus = await userApi.getFollowStatus(qRes.author.id);
+          const followStatus = await userApi.getFollowStatus(question.author.id);
           setFollowingAuthor(Boolean(followStatus));
         } catch (e) {
           console.error('Failed to fetch follow status', e);
           setFollowingAuthor(false);
         }
       }
-
-    } catch (e) {
-      setError(e?.message || 'Failed to load question');
-    } finally {
-      setLoading(false);
+    };
+    if (question && me) {
+      loadFollowStatus();
     }
-  };
+  }, [question, me]);
 
-  // Optimistic Vote Handler
+
+
+  const voteMutation = useVoteQuestion();
+
+  // Vote Handler - optimistic updates are handled by the hook
   const handleVote = async (type) => {
-    // Prevent multiple clicks or invalid handling if loading?
-    // Actually, optimistic UI allows rapid clicks, we just handle latest state.
-
-    const previousStatus = voteStatus;
-    const previousCounts = { ...voteCounts };
-
-    let newStatus = type;
-    let newCounts = { ...voteCounts };
-
-    const isUpvote = type === 'UPVOTE';
-
-    if (voteStatus === type) {
-      // Toggle off
-      newStatus = 'NONE';
-      if (isUpvote) newCounts.upvotes--;
-      else newCounts.downvotes--;
-    } else if (voteStatus === 'NONE') {
-      // New vote
-      if (isUpvote) newCounts.upvotes++;
-      else newCounts.downvotes++;
-    } else {
-      // Switch vote (e.g. Up to Down)
-      if (isUpvote) {
-        newCounts.upvotes++;
-        newCounts.downvotes--;
-      } else {
-        newCounts.downvotes++;
-        newCounts.upvotes--;
-      }
-    }
-
-    // Optimistic Update
-    setVoteStatus(newStatus);
-    setVoteCounts(newCounts);
-
     try {
-      await voteApi.voteQuestion(questionId, type);
-      // We don't need to refresh counts immediately if we trust our logic, 
-      // but refreshing ensures eventual consistency.
-      // We can do it silently in background or skip it.
-      // Better to rely on optimistic state for "instant" feel.
+      await voteMutation.mutateAsync({ postId: questionId, voteType: type });
     } catch (e) {
       console.error('Vote failed', e);
-      // Revert on error
-      setVoteStatus(previousStatus);
-      setVoteCounts(previousCounts);
     }
   };
+
+  const bookmarkMutation = useBookmarkPost();
+  const unbookmarkMutation = useUnbookmarkPost();
 
   const handleBookmarkToggle = async () => {
     // Capture current bookmark status BEFORE optimistic update
     const wasBookmarked = bookmarked;
-    
-    // Optimistic update
-    setBookmarked(!wasBookmarked);
-    
+
     try {
       if (wasBookmarked) {
-        await bookmarkApi.unbookmarkPost(questionId);
+        await unbookmarkMutation.mutateAsync(questionId);
       } else {
-        await bookmarkApi.bookmarkPost(questionId);
+        await bookmarkMutation.mutateAsync(questionId);
       }
     } catch (e) {
       console.error('Bookmark toggle failed:', e);
-      // Revert to original state on error
-      setBookmarked(wasBookmarked);
+      // Revert to original state on error - handled by React Query automatically
     }
   };
 
@@ -179,7 +116,7 @@ export default function QuestionPage() {
     }
   };
 
-  if (loading) {
+  if (questionLoading || votesLoading || voteStatusLoading || bookmarkLoading) {
     return (
       <div className="min-h-screen bg-[#FFF5F6]">
         <Navbar user={me} />
@@ -193,16 +130,16 @@ export default function QuestionPage() {
     );
   }
 
-  if (error) {
+  if (questionError || error) {
     return (
       <div className="min-h-screen bg-[#FFF5F6]">
         <Navbar user={me} />
         <div className="max-w-[1000px] mx-auto px-4 md:px-6 py-8">
           <div className="bg-white border border-red-200 p-8 rounded-xl text-center">
-            <div className="text-red-600 font-medium mb-4">{error}</div>
+            <div className="text-red-600 font-medium mb-4">{error || 'Failed to load question'}</div>
             <button
               className="px-6 py-2 bg-[#FF6B6B] text-white rounded-full hover:bg-[#FF5252] transition-colors"
-              onClick={bootstrap}
+              onClick={() => refetch()}
             >
               Retry
             </button>

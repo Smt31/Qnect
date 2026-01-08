@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAuthToken, feedApi, voteApi, userApi, questionApi, bookmarkApi, API_URL } from '../api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getAuthToken, API_URL } from '../api';
+import { useFeed, useCurrentUser, useVoteQuestion, useBookmarkPost, useUnbookmarkPost, useCreateQuestion, useDeleteQuestion, useFollowUser, useUnfollowUser } from '../api/queryHooks';
 import Navbar from '../components/Home/Navbar';
 import FeedImage from '../components/FeedImage';
 import LeftSidebar from '../components/Home/LeftSidebar';
@@ -19,11 +21,19 @@ export default function HomePage() {
   };
   const savedState = useMemo(() => getSavedState(), []);
 
-  const [feedData, setFeedData] = useState(savedState?.feedData || null);
-  const [loading, setLoading] = useState(!savedState?.feedData);
   const [error, setError] = useState(null);
 
   const [activeTab, setActiveTab] = useState(savedState?.activeTab || 'FOR_YOU');
+
+  const { data: feedData, isLoading: loading, isError, refetch } = useFeed(activeTab, 0, 10);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      navigate('/login', { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* 
      We can now rely on `post.currentUserVoteStatus` for initial state.
@@ -33,6 +43,9 @@ export default function HomePage() {
      Let's try updating feedData state.
   */
   const [followedUsers, setFollowedUsers] = useState({});
+
+  const followMutation = useFollowUser();
+  const unfollowMutation = useUnfollowUser();
 
   const [askOpen, setAskOpen] = useState(false);
   const [activeCreateTab, setActiveCreateTab] = useState('QUESTION'); // 'QUESTION' or 'POST'
@@ -65,50 +78,11 @@ export default function HomePage() {
     };
   }, [feedData, activeTab]);
 
-  useEffect(() => {
-    const token = getAuthToken();
-    if (!token) {
-      navigate('/login', { replace: true });
-    } else {
-      // Only fetch if no data (i.e. not restored from session)
-      // Or if activeTab changed explicitly (which we can detect by savedTab !== activeTab, but initial render is complicated)
-      // Simplified: If feedData is null, fetch.
-      if (!feedData) {
-        fetchFeedData(activeTab);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate]);
 
-  useEffect(() => {
-    const token = getAuthToken();
-    if (!token) return;
 
-    // If activeTab changed and we have data for a DIFFERENT tab, we fetch.
-    // Logic: If we just restored data for 'FOR_YOU', and user clicks 'RECENT', we need to fetch.
-    // We can rely on feedData being reset or check if current feed matches tab? 
-    // Simply: When activeTab changes, we WANT to fetch new data usually.
-    // BUT checking against restored state is tricky.
-    // Let's just say: if we triggered this effect because activeTab changed, verify if we already have data for it.
-    // For simplicity: If not initial load (loading is false), fetch.
-    if (!loading) {
-      fetchFeedData(activeTab);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
 
-  const fetchFeedData = async (tab = 'FOR_YOU') => {
-    try {
-      setLoading(true);
-      const data = await feedApi.getFeed(tab, 0, 10);
-      setFeedData(data);
-      setError(null);
-    } catch (err) {
-      setError(err.message || 'Failed to load feed data');
-    } finally {
-      setLoading(false);
-    }
-  };
+
+
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -141,126 +115,60 @@ export default function HomePage() {
     }
   };
 
+  const voteMutation = useVoteQuestion();
+
   const handleVote = async (postId, type) => {
-    // Optimistic update on feedData
-    setFeedData(prevData => {
-      if (!prevData) return prevData;
-
-      const newFeed = prevData.feed.map(post => {
-        if (post.id !== postId) return post;
-
-        const currentStatus = post.currentUserVoteStatus || 'NONE';
-        const isUpvote = type === 'UPVOTE';
-
-        let nextStatus = type;
-        let nextUp = post.upvotes || 0;
-        let nextDown = post.downvotes || 0;
-
-        // If toggling off
-        if (currentStatus === type) {
-          nextStatus = 'NONE';
-          if (isUpvote) nextUp--; else nextDown--;
-        }
-        // If switching
-        else if (currentStatus !== 'NONE') {
-          if (isUpvote) { nextUp++; nextDown--; }
-          else { nextDown++; nextUp--; }
-        }
-        // If new vote
-        else {
-          if (isUpvote) nextUp++; else nextDown++;
-        }
-
-        return {
-          ...post,
-          currentUserVoteStatus: nextStatus,
-          upvotes: nextUp,
-          downvotes: nextDown
-        };
-      });
-
-      return { ...prevData, feed: newFeed };
-    });
-
+    // Optimistic updates are now handled by the useVoteQuestion hook
     try {
-      await voteApi.voteQuestion(postId, type);
+      await voteMutation.mutateAsync({ voteType: type, postId });
     } catch (e) {
-      console.error(e);
-      // Revert if needed (fetching feed again is easiest or complex revert logic)
+      console.error('Vote failed:', e);
+      // Error rollback is handled by the hook
     }
   };
 
   const handleFollow = async (userId) => {
+    const isCurrentlyFollowing = followedUsers[userId];
+
+    // Optimistic update
+    setFollowedUsers(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
+
     try {
-      const isCurrentlyFollowing = followedUsers[userId];
-
       if (isCurrentlyFollowing) {
-        await userApi.unfollowUser(userId);
+        await unfollowMutation.mutateAsync(userId);
       } else {
-        await userApi.followUser(userId);
+        await followMutation.mutateAsync(userId);
       }
-
-      setFollowedUsers(prev => ({
-        ...prev,
-        [userId]: !prev[userId]
-      }));
     } catch (error) {
       console.error('Error following user:', error);
+      // Revert the optimistic update
+      setFollowedUsers(prev => ({
+        ...prev,
+        [userId]: prev[userId]
+      }));
     }
   };
 
+  const bookmarkMutation = useBookmarkPost();
+  const unbookmarkMutation = useUnbookmarkPost();
+
   const handleBookmark = async (postId) => {
-    // Capture current bookmark status BEFORE optimistic update
+    // Optimistic updates are now handled by the bookmark hooks
     const post = feedData?.feed?.find(p => p.id === postId);
     const wasBookmarked = post?.isBookmarked || false;
 
-    console.log('Bookmark clicked for post:', postId);
-    console.log('Current bookmark status:', wasBookmarked);
-    console.log('Will toggle to:', !wasBookmarked);
-
-    // Optimistic update on feedData - toggle bookmark
-    setFeedData(prevData => {
-      if (!prevData) return prevData;
-
-      const newFeed = prevData.feed.map(post => {
-        if (post.id !== postId) return post;
-
-        return {
-          ...post,
-          isBookmarked: !wasBookmarked
-        };
-      });
-
-      return { ...prevData, feed: newFeed };
-    });
-
     try {
-      // Make API call based on captured status
       if (wasBookmarked) {
-        console.log('Calling unbookmarkPost API');
-        await bookmarkApi.unbookmarkPost(postId);
+        await unbookmarkMutation.mutateAsync(postId);
       } else {
-        console.log('Calling bookmarkPost API');
-        await bookmarkApi.bookmarkPost(postId);
+        await bookmarkMutation.mutateAsync(postId);
       }
-      console.log('Bookmark API call successful');
     } catch (e) {
       console.error('Bookmark toggle failed:', e);
-      // Revert to original state on error
-      setFeedData(prevData => {
-        if (!prevData) return prevData;
-
-        const newFeed = prevData.feed.map(post => {
-          if (post.id !== postId) return post;
-
-          return {
-            ...post,
-            isBookmarked: wasBookmarked
-          };
-        });
-
-        return { ...prevData, feed: newFeed };
-      });
+      // Error rollback is handled by the hook
     }
   };
 
@@ -270,6 +178,8 @@ export default function HomePage() {
     const firstWithImage = posts.find(p => p.imageUrl);
     return firstWithImage || null;
   }, [feedData]);
+
+  const createQuestionMutation = useCreateQuestion();
 
   const handleSubmitQuestion = async (e) => {
     e.preventDefault();
@@ -297,7 +207,7 @@ export default function HomePage() {
         type: activeCreateTab
       };
 
-      await questionApi.createQuestion(payload);
+      await createQuestionMutation.mutateAsync(payload);
 
       // Reset
       setQuestionTitle('');
@@ -305,9 +215,6 @@ export default function HomePage() {
       setTags('');
       setImageUrl('');
       setAskOpen(false);
-
-      // Refresh
-      fetchFeedData(activeTab);
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Failed to post question');
@@ -316,14 +223,12 @@ export default function HomePage() {
     }
   };
 
+  const deleteQuestionMutation = useDeleteQuestion();
+
   const handleDeletePost = async (postId) => {
     try {
-      await questionApi.deleteQuestion(postId);
-      // Remove from feed locally
-      setFeedData(prev => ({
-        ...prev,
-        feed: prev.feed.filter(p => p.id !== postId)
-      }));
+      await deleteQuestionMutation.mutateAsync(postId);
+      // The feed will be invalidated by the mutation's onSuccess handler
     } catch (error) {
       console.error('Failed to delete post:', error);
       alert('Failed to delete post');
@@ -494,7 +399,7 @@ export default function HomePage() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="min-h-screen bg-[#FFF5F6]">
         <Navbar user={feedData?.user} />
@@ -506,10 +411,10 @@ export default function HomePage() {
               </svg>
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Error Loading Feed</h3>
-            <p className="text-gray-500 mb-6">{error}</p>
+            <p className="text-gray-500 mb-6">There was an error loading the feed. Please try again.</p>
             <button
               className="px-4 py-2 bg-[#FF6B6B] hover:bg-[#FF5252] text-white font-medium rounded-lg transition-colors"
-              onClick={() => fetchFeedData(activeTab)}
+              onClick={() => refetch()}
             >
               Try Again
             </button>
@@ -534,7 +439,7 @@ export default function HomePage() {
             <p className="text-gray-500 mb-6">Unable to load feed data.</p>
             <button
               className="px-4 py-2 bg-[#FF6B6B] hover:bg-[#FF5252] text-white font-medium rounded-lg transition-colors"
-              onClick={() => fetchFeedData(activeTab)}
+              onClick={() => refetch()}
             >
               Try Again
             </button>

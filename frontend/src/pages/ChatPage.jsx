@@ -139,9 +139,23 @@ const ChatPage = () => {
         }
     };
 
-    // 6. Send Message
+    // 6. Send Message - with OPTIMISTIC UPDATE for instant UI feedback
     const handleSendMessage = async (text, type) => {
         if (!selectedUser || !currentUser) return;
+
+        // Create an optimistic message to show immediately
+        const optimisticMessage = {
+            id: `temp-${Date.now()}`, // Temporary ID
+            senderId: currentUser.userId,
+            receiverId: selectedUser.otherUserId,
+            content: text,
+            type: type,
+            createdAt: new Date().toISOString(),
+            pending: true, // Mark as pending for potential UI styling
+        };
+
+        // IMMEDIATELY add to messages (optimistic update)
+        setMessages(prev => [...prev, optimisticMessage]);
 
         const payload = {
             receiverId: selectedUser.otherUserId,
@@ -149,19 +163,26 @@ const ChatPage = () => {
             type: type
         };
 
-        // Send via HTTP (simpler for persistence + ack) which then broadcasts to WS
-        // Or send via WS. Plan said "Implement message sending endpoint". 
-        // We implemented HTTP endpoint in Controller.
-        // We'll use HTTP for sending to ensure persistence confirmation.
-
         try {
             const resp = await chatApi.sendMessageHttp(payload);
-            // Append to our own list
-            setMessages(prev => [...prev, resp]);
-            // Update conversation list too (last message)
+
+            // Replace the optimistic message with the real one from server
+            setMessages(prev => prev.map(msg =>
+                msg.id === optimisticMessage.id
+                    ? { ...resp, pending: false }
+                    : msg
+            ));
+
+            // Update conversation list (last message preview)
             fetchConversations();
         } catch (err) {
             console.error("Failed to send", err);
+            // Mark the message as failed (optionally remove or show error state)
+            setMessages(prev => prev.map(msg =>
+                msg.id === optimisticMessage.id
+                    ? { ...msg, pending: false, failed: true }
+                    : msg
+            ));
         }
     };
 

@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getAuthToken, userApi } from '../api';
+import { useCurrentUser, useUserProfile, useUserStats, useUserQuestions, useFollowUser, useUnfollowUser, useUserFollowers, useUserFollowing } from '../api/queryHooks';
 import Navbar from '../components/Home/Navbar';
 import LeftSidebar from '../components/Home/LeftSidebar';
 import MobileNav from '../components/Home/MobileNav';
@@ -10,101 +12,60 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const [me, setMe] = useState(null); // Current logged in user
-  const [profileUser, setProfileUser] = useState(null); // User whose profile we are viewing
-  const [stats, setStats] = useState(null);
-
+  const { data: me } = useCurrentUser();
+  
+  // Determine the profile user ID (if no id param, use current user)
+  const profileUserId = id && id !== String(me?.userId) ? Number(id) : me?.userId;
+  
+  const { data: profileUser, isLoading: profileLoading, isError: profileError } = useUserProfile(profileUserId);
+  const { data: stats } = useUserStats(profileUserId);
+  const { data: questions = [] } = useUserQuestions(profileUserId);
+  
+  // Check if current user is following the profile user
+  const isMe = useMemo(() => me && profileUser && me.userId === profileUser.userId, [me, profileUser]);
+  
+  const { data: isFollowingProfile = false } = useQuery({
+    queryKey: ['follow-status', profileUserId],
+    queryFn: () => userApi.getFollowStatus(profileUserId),
+    enabled: !!profileUserId && !isMe,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+  
   const [activeTab, setActiveTab] = useState('overview');
-  const [questions, setQuestions] = useState([]);
+  
+  // State for tabs that are loaded on demand
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
-  const [topics, setTopics] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
 
   // Topics Edit State
+  const [topics, setTopics] = useState([]);
   const [isEditingTopics, setIsEditingTopics] = useState(false);
   const [newTopic, setNewTopic] = useState('');
 
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [isFollowingProfile, setIsFollowingProfile] = useState(false);
 
-  const isMe = useMemo(() => me && profileUser && me.userId === profileUser.userId, [me, profileUser]);
+  // Follow mutation
+  const followMutation = useFollowUser();
+  const unfollowMutation = useUnfollowUser();
 
-  // Load everything
+
+
   useEffect(() => {
     const token = getAuthToken();
     if (!token) {
       navigate('/login', { replace: true });
       return;
     }
-    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, []);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      // 1. Get Current User (for Sidebar & Auth)
-      const meRes = await userApi.getCurrentUser();
-      setMe(meRes);
-
-      // 2. Determine Profile User
-      // If no ID param, we are viewing our own profile
-      let targetProfile = meRes;
-      if (id && id !== String(meRes.userId)) {
-        targetProfile = await userApi.getUserProfile(id);
-      }
-      setProfileUser(targetProfile);
-      setTopics(targetProfile.skills || []);
-
-      // 3. Get Stats
-      const statsRes = await userApi.getUserStats(targetProfile.userId);
-      setStats({
-        reputation: statsRes?.reputation || 0,
-        followers: statsRes?.followersCount || 0,
-        following: statsRes?.followingCount || 0,
-        questions: statsRes?.questionsCount || 0,
-      });
-
-      // 4. Check Follow Status (if strictly viewing someone else)
-      if (targetProfile.userId !== meRes.userId) {
-        const status = await userApi.getFollowStatus(targetProfile.userId).catch(() => false);
-        setIsFollowingProfile(!!status);
-      }
-
-      // 5. Fetch Content (Questions, Followers, Following)
-      // We allow parallel fetching for tabs content or lazy load. For simplicity, fetch all or lazy load?
-      // Let's fetch Questions initially as they are commonly viewed.
-      // Followers/Following can be fetched when tab is clicked, or just fetch now for simplicity.
-
-      const qRes = await userApi.getUserQuestions(targetProfile.userId);
-      const qList = Array.isArray(qRes) ? qRes : (qRes.content || []);
-      setQuestions(qList);
-
-      // Synchronize stats count with actual fetched count if provided in pagination metadata
-      if (!Array.isArray(qRes) && typeof qRes.totalElements === 'number') {
-        setStats(prev => ({
-          ...prev,
-          questions: qRes.totalElements
-        }));
-      } else if (Array.isArray(qRes)) {
-        // Fallback if no page info but full list returned
-        setStats(prev => ({
-          ...prev,
-          questions: qList.length
-        }));
-      }
-
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load profile data');
-    } finally {
-      setLoading(false);
+  // Effect to initialize topics when profile user data is loaded
+  useEffect(() => {
+    if (profileUser && profileUser.skills) {
+      setTopics(profileUser.skills);
     }
-  };
+  }, [profileUser]);
 
   // Dedicated effects to fetch tab specific data if needed,
   // but for now let's just fetch Followers/Following when tab changes to them if they are empty
@@ -114,11 +75,6 @@ export default function ProfilePage() {
     if (activeTab === 'followers' && followers.length === 0) {
       userApi.getUserFollowers(profileUser.userId)
         .then(res => setFollowers(res || []))
-        .catch(console.error);
-    }
-    if (activeTab === 'following' && following.length === 0) {
-      userApi.getUserFollowing(profileUser.userId)
-        .then(res => setFollowing(res || []))
         .catch(console.error);
     }
     if (activeTab === 'following' && following.length === 0) {
@@ -141,14 +97,12 @@ export default function ProfilePage() {
   const handleFollowProfile = async () => {
     if (!profileUser || !me) return;
     try {
-      if (isFollowingProfile) {
-        await userApi.unfollowUser(profileUser.userId);
-        setIsFollowingProfile(false);
-        setStats(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
-      } else {
-        await userApi.followUser(profileUser.userId);
-        setIsFollowingProfile(true);
-        setStats(prev => ({ ...prev, followers: prev.followers + 1 }));
+      if (followMutation.status === 'idle' && unfollowMutation.status === 'idle') {
+        if (isFollowingProfile) {
+          await unfollowMutation.mutateAsync(profileUser.userId);
+        } else {
+          await followMutation.mutateAsync(profileUser.userId);
+        }
       }
     } catch (e) { console.error(e); }
   };
@@ -250,11 +204,11 @@ export default function ProfilePage() {
 
 
 
-  if (loading) {
+  if (profileLoading) {
     return <div className="min-h-screen bg-gray-50 p-6 text-center text-gray-500">Loading profile...</div>;
   }
 
-  if (error || !profileUser) {
+  if (profileError || error || !profileUser) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar user={me} />

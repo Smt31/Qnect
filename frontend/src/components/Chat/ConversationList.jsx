@@ -1,5 +1,23 @@
 import React from 'react';
 
+// Format relative time (Just now, 2 min ago, etc.)
+const formatRelativeTime = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHr = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHr < 24) return `${diffHr}h ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return date.toLocaleDateString([], { weekday: 'short' });
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+};
+
 const ConversationList = ({ conversations, selectedUser, onSelectUser, currentUser }) => {
     return (
         <div className="w-full h-full flex flex-col bg-white border-r border-rose-100">
@@ -37,8 +55,8 @@ const ConversationList = ({ conversations, selectedUser, onSelectUser, currentUs
                                 key={conv.otherUserId}
                                 onClick={() => onSelectUser(conv)}
                                 className={`flex items-center px-4 py-3 cursor-pointer transition-all duration-200 mx-2 rounded-xl mb-1 ${selectedUser?.otherUserId === conv.otherUserId
-                                        ? 'bg-gradient-to-r from-rose-100 to-rose-50 border border-rose-200 shadow-sm'
-                                        : 'hover:bg-rose-50/50'
+                                    ? 'bg-gradient-to-r from-rose-100 to-rose-50 border border-rose-200 shadow-sm'
+                                    : 'hover:bg-rose-50/50'
                                     }`}
                             >
                                 {/* Avatar */}
@@ -60,14 +78,14 @@ const ConversationList = ({ conversations, selectedUser, onSelectUser, currentUs
                                         </span>
                                         {conv.lastMessageTime && (
                                             <span className="text-xs text-gray-400 flex-shrink-0">
-                                                {new Date(conv.lastMessageTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                                {formatRelativeTime(conv.lastMessageTime)}
                                             </span>
                                         )}
                                     </div>
                                     <div className="flex items-center justify-between gap-2 mt-0.5">
                                         <p className={`text-sm truncate ${conv.unreadCount > 0
-                                                ? 'text-gray-800 font-medium'
-                                                : 'text-gray-500'
+                                            ? 'text-gray-800 font-medium'
+                                            : 'text-gray-500'
                                             }`}>
                                             {conv.lastMessagePreview || "Start chatting..."}
                                         </p>

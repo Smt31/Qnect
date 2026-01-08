@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { queryClient } from '../../App';
 
 const Navbar = ({ user }) => {
   const navigate = useNavigate();
@@ -7,7 +8,18 @@ const Navbar = ({ user }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleLogout = () => {
+    // CRITICAL: Clear ALL cached data to prevent mixing user data
+    queryClient.clear();
+
+    // Clear all localStorage
     localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('email');
+    localStorage.removeItem('username');
+
+    // Clear session storage
+    sessionStorage.clear();
+
     // Navigate to landing to reset app state
     navigate('/', { replace: true });
   };
