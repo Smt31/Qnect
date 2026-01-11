@@ -51,6 +51,15 @@ public class AnswerRequestController {
         return ResponseEntity.ok(answerRequestService.getSuggestions(questionId, me.getUserId()));
     }
     
+    @GetMapping("/already-requested")
+    public ResponseEntity<List<Long>> getAlreadyRequestedUserIds(
+            @RequestParam Long questionId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        UserProfileDto me = requireUser(userDetails);
+        return ResponseEntity.ok(answerRequestService.getAlreadyRequestedUserIds(questionId, me.getUserId()));
+    }
+    
     @GetMapping("/me/pending")
     public ResponseEntity<List<AnswerRequestDto>> getMyPendingRequests(
              @AuthenticationPrincipal UserDetails userDetails) {
@@ -82,12 +91,14 @@ public class AnswerRequestController {
     }
     
     @lombok.Data
+    @lombok.NoArgsConstructor
     public static class CreateRequestDto {
         private Long questionId;
         private Long expertId;
     }
     
     @lombok.Data
+    @lombok.NoArgsConstructor
     public static class AnswerRequestDto {
         private Long id;
         private Long questionId;

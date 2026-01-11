@@ -10,29 +10,30 @@ import CompactFeedCard from '../components/Feed/CompactFeedCard';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { id } = useParams();
 
   const { data: me } = useCurrentUser();
-  
+
   // Determine the profile user ID (if no id param, use current user)
   const profileUserId = id && id !== String(me?.userId) ? Number(id) : me?.userId;
-  
+
   const { data: profileUser, isLoading: profileLoading, isError: profileError } = useUserProfile(profileUserId);
   const { data: stats } = useUserStats(profileUserId);
   const { data: questions = [] } = useUserQuestions(profileUserId);
-  
+
   // Check if current user is following the profile user
   const isMe = useMemo(() => me && profileUser && me.userId === profileUser.userId, [me, profileUser]);
-  
+
   const { data: isFollowingProfile = false } = useQuery({
     queryKey: ['follow-status', profileUserId],
     queryFn: () => userApi.getFollowStatus(profileUserId),
     enabled: !!profileUserId && !isMe,
     staleTime: 30 * 1000, // 30 seconds
   });
-  
+
   const [activeTab, setActiveTab] = useState('overview');
-  
+
   // State for tabs that are loaded on demand
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
@@ -405,10 +406,8 @@ export default function ProfilePage() {
                                           setFollowers(prev =>
                                             prev.filter(f => f.userId !== u.userId)
                                           );
-                                          setStats(prev => ({
-                                            ...prev,
-                                            followers: prev.followers - 1
-                                          }));
+                                          // Invalidate stats to refetch updated counts
+                                          queryClient.invalidateQueries({ queryKey: ['user-stats', profileUserId] });
                                         } catch (e) {
                                           console.error(e);
                                         }
@@ -425,10 +424,8 @@ export default function ProfilePage() {
                                           setFollowing(prev =>
                                             prev.filter(f => f.userId !== u.userId)
                                           );
-                                          setStats(prev => ({
-                                            ...prev,
-                                            following: prev.following - 1
-                                          }));
+                                          // Invalidate stats to refetch updated counts
+                                          queryClient.invalidateQueries({ queryKey: ['user-stats', profileUserId] });
                                         } catch (e) {
                                           console.error(e);
                                         }

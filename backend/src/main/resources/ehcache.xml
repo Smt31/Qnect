@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config
+        xmlns="http://www.ehcache.org/v3"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.ehcache.org/v3
+        https://www.ehcache.org/schema/ehcache-core-3.0.xsd">
+
+    <!-- User entity cache -->
+    <cache alias="com.example.Qpoint.models.User">
+        <expiry>
+            <ttl unit="minutes">60</ttl>
+        </expiry>
+        <heap unit="entries">2000</heap>
+    </cache>
+
+    <!-- Topic entity cache -->
+    <cache alias="com.example.Qpoint.models.Topic">
+        <expiry>
+            <ttl unit="hours">2</ttl>
+        </expiry>
+        <heap unit="entries">500</heap>
+    </cache>
+
+    <!-- Post entity cache -->
+    <cache alias="com.example.Qpoint.models.Post">
+        <expiry>
+            <ttl unit="minutes">30</ttl>
+        </expiry>
+        <heap unit="entries">3000</heap>
+    </cache>
+
+    <!-- Hibernate internal regions -->
+    <cache alias="default-update-timestamps-region">
+        <expiry><none/></expiry>
+        <heap unit="entries">5000</heap>
+    </cache>
+
+    <cache alias="default-query-results-region">
+        <expiry>
+            <ttl unit="minutes">5</ttl>
+        </expiry>
+        <heap unit="entries">1000</heap>
+    </cache>
+
+</config>

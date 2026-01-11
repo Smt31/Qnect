@@ -25,12 +25,12 @@ const handleResponse = async (res) => {
     const data = await res.json().catch(() => ({}));
     return data;
   }
-  
+
   // For successful responses without content (like DELETE)
   if (res.ok && res.status === 204) {
     return {};
   }
-  
+
   // For error responses
   const errorData = await res.json().catch(() => ({}));
   throw new Error(errorData?.message || errorData?.error || "Request failed");
@@ -201,11 +201,15 @@ export const requestApi = {
   getSuggestions: (questionId) => get(`/api/requests/suggestions?questionId=${questionId}`, true),
   getMyPendingRequests: () => get('/api/requests/me/pending', true),
   searchExperts: (query) => get(`/api/requests/search?query=${encodeURIComponent(query)}`, true),
+  getAlreadyRequestedUserIds: (questionId) => get(`/api/requests/already-requested?questionId=${questionId}`, true),
 };
 
 export const notificationApi = {
   getNotifications: (page = 0, size = 10) => get(`/api/notifications?page=${page}&size=${size}`, true),
   markAsRead: (id) => post(`/api/notifications/${id}/read`, {}, true),
+  getUnreadCount: () => get('/api/notifications/unread-count', true),
+  markAllAsRead: () => post('/api/notifications/mark-all-read', {}, true),
+  clearAll: () => del('/api/notifications/clear-all', true),
 };
 
 export const chatApi = {

@@ -2,12 +2,15 @@ package com.example.Qpoint.models;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import java.time.Instant;
 import java.util.List;
 
 @Entity
 @Table(name = "posts")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Post {
 
     @Enumerated(EnumType.STRING)
@@ -36,6 +39,7 @@ public class Post {
     @ElementCollection
     @CollectionTable(name = "post_tags", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "tag")
+    @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
     private List<String> tags;
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -44,6 +48,7 @@ public class Post {
         joinColumns = @JoinColumn(name = "post_id"),
         inverseJoinColumns = @JoinColumn(name = "topic_id")
     )
+    @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
     @Builder.Default
     private java.util.Set<Topic> topics = new java.util.HashSet<>();
 

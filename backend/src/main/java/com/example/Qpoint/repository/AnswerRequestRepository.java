@@ -22,4 +22,7 @@ public interface AnswerRequestRepository extends JpaRepository<AnswerRequest, Lo
     Optional<AnswerRequest> findByQuestionAndRequestedTo(Post question, User requestedTo);
     
     boolean existsByRequestedByAndRequestedTo(User requestedBy, User requestedTo);
+    
+    // Find all requests sent by a specific user for a specific question
+    List<AnswerRequest> findByQuestionAndRequestedBy(Post question, User requestedBy);
 }

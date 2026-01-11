@@ -59,4 +59,64 @@ public class NotificationController {
         notificationService.markAsRead(id, userId);
         return ResponseEntity.ok().build();
     }
+    
+    @GetMapping("/unread-count")
+    public ResponseEntity<Long> getUnreadCount(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof CustomUserDetails)) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        Long userId = ((CustomUserDetails) principal).getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        return ResponseEntity.ok(notificationService.getUnreadCount(userId));
+    }
+    
+    @PostMapping("/mark-all-read")
+    public ResponseEntity<Void> markAllAsRead(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof CustomUserDetails)) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        Long userId = ((CustomUserDetails) principal).getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        notificationService.markAllAsRead(userId);
+        return ResponseEntity.ok().build();
+    }
+    
+    @DeleteMapping("/clear-all")
+    public ResponseEntity<Void> clearAllNotifications(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof CustomUserDetails)) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        Long userId = ((CustomUserDetails) principal).getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        notificationService.clearAllNotifications(userId);
+        return ResponseEntity.ok().build();
+    }
 }
+

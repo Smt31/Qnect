@@ -17,22 +17,31 @@ export default function RequestAnswerModal({ isOpen, onClose, questionId, curren
     }, [isOpen, questionId]);
 
     // Filter suggestions based on search query
-    const filteredSuggestions = searchQuery 
-        ? searchResults 
+    const filteredSuggestions = searchQuery
+        ? searchResults
         : suggestions;
 
     const loadSuggestions = async () => {
         try {
             setLoading(true);
             setError('');
-            const data = await requestApi.getSuggestions(questionId);
-            setSuggestions(data || []);
 
-            // Also fetch my pending requests to mark buttons as "Requested"
-            // Optimization: Ideally backend returns this status in suggestions DTO.
-            // For now, we assume clean slate or just local state if user clicks.
-            // But if user refreshes, persistence is lost visually until implemented.
-            // Let's rely on local session state for now.
+            // Fetch both suggestions and already-requested user IDs in parallel
+            const [suggestionsData, alreadyRequestedIds] = await Promise.all([
+                requestApi.getSuggestions(questionId),
+                requestApi.getAlreadyRequestedUserIds(questionId)
+            ]);
+
+            setSuggestions(suggestionsData || []);
+
+            // Initialize sentRequests map with already-requested user IDs
+            if (alreadyRequestedIds && alreadyRequestedIds.length > 0) {
+                const requestedMap = {};
+                alreadyRequestedIds.forEach(userId => {
+                    requestedMap[userId] = true;
+                });
+                setSentRequests(requestedMap);
+            }
         } catch (err) {
             setError('Failed to load suggestions');
         } finally {
@@ -46,7 +55,7 @@ export default function RequestAnswerModal({ isOpen, onClose, questionId, curren
             setSearchResults([]);
             return;
         }
-        
+
         try {
             setIsSearching(true);
             setError('');

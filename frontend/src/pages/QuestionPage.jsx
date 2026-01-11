@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAuthToken } from '../api';
+import { getAuthToken, userApi, questionApi } from '../api';
 import { useQuestion, useCurrentUser, useQuestionVoteCounts, useQuestionVoteStatus, useVoteQuestion, useBookmarkPost, useUnbookmarkPost, useBookmarkStatus } from '../api/queryHooks';
 import Navbar from '../components/Home/Navbar';
 import FeedImage from '../components/FeedImage';

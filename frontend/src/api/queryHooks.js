@@ -646,6 +646,117 @@ export const useNotifications = (page = 0, size = 10) => {
   });
 };
 
+export const useUnreadNotificationCount = () => {
+  return useQuery({
+    queryKey: ['unread-notification-count'],
+    queryFn: () => notificationApi.getUnreadCount(),
+    staleTime: 30 * 1000, // 30 seconds - check frequently for new notifications
+    cacheTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
+    refetchInterval: 60 * 1000, // Refetch every 60 seconds for real-time feel
+    retry: 1,
+  });
+};
+
+export const useMarkNotificationAsRead = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id) => notificationApi.markAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notification-count'] });
+    },
+  });
+};
+
+export const useMarkAllNotificationsAsRead = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => notificationApi.markAllAsRead(),
+    onMutate: async () => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      await queryClient.cancelQueries({ queryKey: ['unread-notification-count'] });
+
+      // Snapshot previous values
+      const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
+      const previousCount = queryClient.getQueryData(['unread-notification-count']);
+
+      // Optimistically update unread count to 0
+      queryClient.setQueryData(['unread-notification-count'], 0);
+
+      // Optimistically mark all as read
+      queryClient.setQueriesData({ queryKey: ['notifications'] }, (oldData) => {
+        if (!oldData) return oldData;
+        const content = oldData.content || oldData;
+        if (Array.isArray(content)) {
+          const updated = content.map(n => ({ ...n, isRead: true }));
+          return oldData.content ? { ...oldData, content: updated } : updated;
+        }
+        return oldData;
+      });
+
+      return { previousNotifications, previousCount };
+    },
+    onError: (err, _, context) => {
+      // Rollback
+      if (context?.previousNotifications) {
+        for (const [queryKey, queryData] of context.previousNotifications) {
+          queryClient.setQueryData(queryKey, queryData);
+        }
+      }
+      if (context?.previousCount !== undefined) {
+        queryClient.setQueryData(['unread-notification-count'], context.previousCount);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notification-count'] });
+    },
+  });
+};
+
+export const useClearAllNotifications = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => notificationApi.clearAll(),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      await queryClient.cancelQueries({ queryKey: ['unread-notification-count'] });
+
+      const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
+      const previousCount = queryClient.getQueryData(['unread-notification-count']);
+
+      // Optimistically clear all
+      queryClient.setQueriesData({ queryKey: ['notifications'] }, (oldData) => {
+        if (!oldData) return oldData;
+        return oldData.content ? { ...oldData, content: [] } : [];
+      });
+      queryClient.setQueryData(['unread-notification-count'], 0);
+
+      return { previousNotifications, previousCount };
+    },
+    onError: (err, _, context) => {
+      if (context?.previousNotifications) {
+        for (const [queryKey, queryData] of context.previousNotifications) {
+          queryClient.setQueryData(queryKey, queryData);
+        }
+      }
+      if (context?.previousCount !== undefined) {
+        queryClient.setQueryData(['unread-notification-count'], context.previousCount);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notification-count'] });
+    },
+  });
+};
+
+
 export const useConversations = () => {
   return useQuery({
     queryKey: ['conversations'],

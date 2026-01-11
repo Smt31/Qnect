@@ -148,6 +148,21 @@ public class AnswerRequestService {
                 .collect(Collectors.toList());
     }
     
+    /**
+     * Get all user IDs that the current user has already sent requests to for a specific question.
+     */
+    public List<Long> getAlreadyRequestedUserIds(Long questionId, Long requesterId) {
+        Post question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Question not found"));
+        User requester = userRepository.findById(requesterId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        return answerRequestRepository.findByQuestionAndRequestedBy(question, requester)
+                .stream()
+                .map(req -> req.getRequestedTo().getUserId())
+                .collect(Collectors.toList());
+    }
+    
     @Transactional(readOnly = true)
     public List<UserProfileDto> searchExperts(String query, Long userId) {
         try {

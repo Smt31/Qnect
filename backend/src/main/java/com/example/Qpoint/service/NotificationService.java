@@ -61,4 +61,26 @@ public class NotificationService {
         notification.setIsRead(true);
         notificationRepository.save(notification);
     }
+    
+    @Transactional(readOnly = true)
+    public long getUnreadCount(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return notificationRepository.countByRecipientAndIsReadFalse(user);
+    }
+    
+    @Transactional
+    public void markAllAsRead(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        notificationRepository.markAllAsReadByRecipient(user);
+    }
+    
+    @Transactional
+    public void clearAllNotifications(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        notificationRepository.deleteByRecipient(user);
+    }
 }
+

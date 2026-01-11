@@ -111,6 +111,16 @@
 			<version>1.34.0</version>
 		</dependency>
 
+		<!-- Hibernate Second-Level Cache with EhCache -->
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-jcache</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ehcache</groupId>
+			<artifactId>ehcache</artifactId>
+			<classifier>jakarta</classifier>
+		</dependency>
 
 	</dependencies>
 
