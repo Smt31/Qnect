@@ -8,13 +8,16 @@ import com.example.Qpoint.models.User;
 import com.example.Qpoint.models.Follow;
 import com.example.Qpoint.repository.UserRepository;
 import com.example.Qpoint.repository.FollowRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.example.Qpoint.models.Notification; // Added import for Notification
+import com.example.Qpoint.models.Notification;
 
 @Service
 public class UserService {
@@ -33,6 +36,7 @@ public class UserService {
         this.topicRepository = topicRepository;
     }
 
+    @Cacheable(value = "users", key = "#userId")
     public UserProfileDto getUserProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -77,6 +81,10 @@ public class UserService {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "users", key = "#userId"),
+        @CacheEvict(value = "userStats", key = "#userId")
+    })
     public UserProfileDto updateUserProfile(Long userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -130,6 +138,7 @@ public class UserService {
         return dto;
     }
 
+    @Cacheable(value = "userStats", key = "#userId")
     public UserStatsDto getUserStats(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -170,6 +179,10 @@ public class UserService {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "userStats", key = "#followerId"),
+        @CacheEvict(value = "userStats", key = "#followingId")
+    })
     public void followUser(Long followerId, Long followingId) {
         if (followerId.equals(followingId)) {
             throw new RuntimeException("Cannot follow yourself");
@@ -228,6 +241,10 @@ public class UserService {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "userStats", key = "#followerId"),
+        @CacheEvict(value = "userStats", key = "#followingId")
+    })
     public void unfollowUser(Long followerId, Long followingId) {
         User follower = userRepository.findById(followerId)
                 .orElseThrow(() -> new RuntimeException("Follower not found"));

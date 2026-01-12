@@ -3,8 +3,6 @@ package com.example.Qpoint.models;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
 import java.time.Instant;
 import java.util.List;
 
@@ -14,7 +12,6 @@ import java.util.List;
                 @Index(name = "idx_users_username", columnList = "username")})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class User {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -76,7 +73,6 @@ public class User {
     @ElementCollection
     @CollectionTable(name = "user_skills", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "skill")
-    @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
     private List<String> skills;
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -85,7 +81,6 @@ public class User {
         joinColumns = @JoinColumn(name = "user_id"),
         inverseJoinColumns = @JoinColumn(name = "topic_id")
     )
-    @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
     @Builder.Default
     private java.util.Set<Topic> topics = new java.util.HashSet<>();
 

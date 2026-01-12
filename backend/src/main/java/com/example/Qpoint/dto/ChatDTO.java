@@ -14,7 +14,7 @@ public class ChatDTO {
     public static class MessageRequest {
         private Long receiverId;
         private String content; // Text content
-        private String type; // TEXT, IMAGE, POST, QUESTION
+        private String type; // TEXT, IMAGE, POST_SHARE, QUESTION_SHARE
         private Long sharedPostId; // If sharing
     }
 
@@ -31,9 +31,23 @@ public class ChatDTO {
         private String content;
         private String type;
         private String attachmentUrl;
-        private Long sharedPostId; // Could expand to full PostDTO if needed
+        private SharedPostDto sharedPost; // Full post details for rendering
         private Instant createdAt;
         private Boolean isRead;
+    }
+    
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    public static class SharedPostDto {
+        private Long id;
+        private String title;
+        private String imageUrl;
+        private String content; // Truncated content preview
+        private Long authorId;
+        private String authorName;
+        private String authorAvatar;
     }
     
     @Data
@@ -51,3 +65,4 @@ public class ChatDTO {
         private long unreadCount;
     }
 }
+

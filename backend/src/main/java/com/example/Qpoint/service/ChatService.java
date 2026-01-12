@@ -22,6 +22,7 @@ public class ChatService {
     private final FollowRepository followRepository;
     private final AnswerRequestRepository answerRequestRepository;
     private final AnswerRepository answerRepository;
+    private final PostRepository postRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional(readOnly = true)
@@ -191,8 +192,19 @@ public class ChatService {
                 .isRead(false)
                 .build();
         
-        // Handle Post/Question Share logic if needed (set sharedPost)
-        // message.setSharedPost(...);
+        // Handle Post/Question Share - fetch and attach the shared post
+        Post sharedPost = null;
+        if (request.getSharedPostId() != null) {
+            sharedPost = postRepository.findById(request.getSharedPostId())
+                    .orElse(null);
+            if (sharedPost != null) {
+                message.setSharedPost(sharedPost);
+                // Set a default content if not provided
+                if (request.getContent() == null || request.getContent().isEmpty()) {
+                    message.setContent("Shared a post");
+                }
+            }
+        }
 
         Message savedMessage = messageRepository.save(message);
 
@@ -209,6 +221,7 @@ public class ChatService {
                 .receiverId(receiver.getUserId())
                 .content(savedMessage.getContent())
                 .type(savedMessage.getType().name())
+                .sharedPost(buildSharedPostDto(sharedPost))
                 .createdAt(savedMessage.getCreatedAt())
                 .isRead(false)
                 .build();
@@ -221,6 +234,30 @@ public class ChatService {
         );
 
         return response;
+    }
+    
+    /**
+     * Helper method to build SharedPostDto from Post entity
+     */
+    private ChatDTO.SharedPostDto buildSharedPostDto(Post post) {
+        if (post == null) return null;
+        
+        String contentPreview = null;
+        if (post.getContent() != null && post.getContent().length() > 100) {
+            contentPreview = post.getContent().substring(0, 100) + "...";
+        } else {
+            contentPreview = post.getContent();
+        }
+        
+        return ChatDTO.SharedPostDto.builder()
+                .id(post.getId())
+                .title(post.getTitle())
+                .imageUrl(post.getImageUrl())
+                .content(contentPreview)
+                .authorId(post.getAuthor().getUserId())
+                .authorName(post.getAuthor().getFullName())
+                .authorAvatar(post.getAuthor().getAvatarUrl())
+                .build();
     }
 
     @Transactional(readOnly = true)
@@ -239,6 +276,7 @@ public class ChatService {
                 .receiverId(m.getReceiver().getUserId())
                 .content(m.getContent())
                 .type(m.getType().name())
+                .sharedPost(buildSharedPostDto(m.getSharedPost()))
                 .createdAt(m.getCreatedAt())
                 .isRead(m.getIsRead())
                 .build())

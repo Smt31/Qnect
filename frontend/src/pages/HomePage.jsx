@@ -9,6 +9,7 @@ import LeftSidebar from '../components/Home/LeftSidebar';
 import RightSidebar from '../components/Home/RightSidebar';
 import MobileNav from '../components/Home/MobileNav';
 import FeedCard from '../components/Feed/FeedCard';
+import ShareModal from '../components/ShareModal';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -57,6 +58,15 @@ export default function HomePage() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
   const scrollRef = useRef(0);
+
+  // Share modal state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [sharePost, setSharePost] = useState(null);
+
+  const handleShare = (post) => {
+    setSharePost(post);
+    setShowShareModal(true);
+  };
   // Restore scroll position only once on mount
   useEffect(() => {
     if (savedState?.scrollY) {
@@ -670,6 +680,7 @@ export default function HomePage() {
                     currentUserId={feedData.user?.userId}
                     onVote={handleVote}
                     onDelete={handleDeletePost}
+                    onShare={handleShare}
                     topRightElement={
                       <button
                         className={`flex flex-col items-center justify-center w-10 h-10 rounded-full border transition-all ${post.isBookmarked
@@ -718,6 +729,13 @@ export default function HomePage() {
       </div >
 
       <MobileNav onAskQuestion={() => setAskOpen(true)} />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        post={sharePost}
+      />
     </div >
   );
 }

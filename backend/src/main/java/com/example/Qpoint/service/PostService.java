@@ -7,6 +7,8 @@ import com.example.Qpoint.models.PostType;
 import com.example.Qpoint.models.User;
 import com.example.Qpoint.repository.PostRepository;
 import com.example.Qpoint.repository.UserRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -270,6 +272,7 @@ public class PostService {
         return posts.map(post -> convertToFeedPostDto(post, userId));
     }
 
+    @Cacheable(value = "posts", key = "#postId")
     public FeedPostDto getPostById(Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));

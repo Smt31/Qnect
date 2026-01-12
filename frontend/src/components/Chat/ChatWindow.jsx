@@ -86,12 +86,64 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage }) => {
                     const isOwn = msg.senderId === currentUser.userId;
                     const isPending = msg.pending;
                     const isFailed = msg.failed;
+                    const isSharedPost = msg.type === 'POST_SHARE' || msg.type === 'QUESTION_SHARE';
 
                     // Format timestamp
                     const formatTime = (dateStr) => {
                         if (!dateStr) return '';
                         const date = new Date(dateStr);
                         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    };
+
+                    // Render shared post card
+                    const renderSharedPost = () => {
+                        const post = msg.sharedPost;
+                        if (!post) return <p className="whitespace-pre-wrap">{msg.content}</p>;
+
+                        return (
+                            <a
+                                href={`/question/${post.id}`}
+                                className="block"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    window.location.href = `/question/${post.id}`;
+                                }}
+                            >
+                                <div className={`rounded-xl overflow-hidden border ${isOwn ? 'border-white/20 bg-white/10' : 'border-gray-200 bg-white'} max-w-xs`}>
+                                    {/* Post Image */}
+                                    {post.imageUrl && (
+                                        <img
+                                            src={post.imageUrl}
+                                            alt=""
+                                            className="w-full h-32 object-cover"
+                                        />
+                                    )}
+                                    {/* Post Content */}
+                                    <div className="p-3">
+                                        <p className={`text-sm font-medium line-clamp-2 ${isOwn ? 'text-white' : 'text-gray-900'}`}>
+                                            {post.title}
+                                        </p>
+                                        {post.content && (
+                                            <p className={`text-xs mt-1 line-clamp-2 ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
+                                                {post.content}
+                                            </p>
+                                        )}
+                                        <div className="flex items-center gap-2 mt-2">
+                                            {post.authorAvatar && (
+                                                <img
+                                                    src={post.authorAvatar}
+                                                    alt=""
+                                                    className="w-5 h-5 rounded-full object-cover"
+                                                />
+                                            )}
+                                            <span className={`text-xs ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>
+                                                {post.authorName || 'User'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        );
                     };
 
                     return (
@@ -108,10 +160,12 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage }) => {
                                     className={`px-4 py-2.5 break-words text-sm md:text-base ${isOwn
                                         ? `bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-2xl rounded-br-md shadow-sm ${isPending ? 'opacity-70' : ''} ${isFailed ? 'from-red-400 to-red-500' : ''}`
                                         : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
-                                        }`}
+                                        } ${isSharedPost ? 'p-2' : ''}`}
                                 >
                                     {msg.type === 'IMAGE' ? (
                                         <img src={msg.attachmentUrl} alt="Attachment" className="rounded-lg max-h-60" />
+                                    ) : isSharedPost ? (
+                                        renderSharedPost()
                                     ) : (
                                         <p className="whitespace-pre-wrap">{msg.content}</p>
                                     )}

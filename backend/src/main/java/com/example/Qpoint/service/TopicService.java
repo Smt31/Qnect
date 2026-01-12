@@ -2,6 +2,8 @@ package com.example.Qpoint.service;
 
 import com.example.Qpoint.models.Topic;
 import com.example.Qpoint.repository.TopicRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +20,7 @@ public class TopicService {
         this.topicRepository = topicRepository;
     }
 
+    @CacheEvict(value = {"topics", "trendingTopics"}, allEntries = true)
     public Topic createTopic(String name, String description) {
         // Check if topic already exists
         var existingTopic = topicRepository.findByName(name);
@@ -38,16 +41,19 @@ public class TopicService {
         return topicRepository.findAll(pageable);
     }
 
+    @Cacheable(value = "topics", key = "#id")
     public Topic getTopicById(Long id) {
         return topicRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Topic not found"));
     }
 
+    @Cacheable(value = "trendingTopics", key = "#limit")
     public List<Topic> getTrendingTopics(int limit) {
         Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "postCount"));
         return topicRepository.findAll(pageable).getContent();
     }
 
+    @Cacheable(value = "topics", key = "'all'")
     public Iterable<Topic> getAll() {
         return topicRepository.findAll(Sort.by(Sort.Direction.DESC, "postCount"));
     }

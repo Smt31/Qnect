@@ -2,15 +2,12 @@ package com.example.Qpoint.models;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
 import java.time.Instant;
 
 @Entity
 @Table(name = "topics")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Topic {
 
     @Id
