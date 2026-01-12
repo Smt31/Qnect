@@ -14,18 +14,18 @@ import java.util.stream.Collectors;
 public class AnswerRequestService {
 
     private final AnswerRequestRepository answerRequestRepository;
-    private final QuestionRepository questionRepository;
+    private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final UserService userService;
 
     public AnswerRequestService(AnswerRequestRepository answerRequestRepository,
-                                QuestionRepository questionRepository,
+                                PostRepository postRepository,
                                 UserRepository userRepository,
                                 NotificationService notificationService,
                                 UserService userService) {
         this.answerRequestRepository = answerRequestRepository;
-        this.questionRepository = questionRepository;
+        this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.userService = userService;
@@ -33,7 +33,7 @@ public class AnswerRequestService {
 
     @Transactional
     public void createRequest(Long questionId, Long expertId, Long requesterId) {
-        Post question = questionRepository.findById(questionId)
+        Post question = postRepository.findById(questionId)
                 .orElseThrow(() -> new RuntimeException("Question not found"));
 
         if (!question.getAuthor().getUserId().equals(requesterId)) {
@@ -84,7 +84,7 @@ public class AnswerRequestService {
     @Transactional(readOnly = true)
     public List<UserProfileDto> getSuggestions(Long questionId, Long userId) {
         try {
-            Post question = questionRepository.findById(questionId)
+            Post question = postRepository.findById(questionId)
                     .orElseThrow(() -> new RuntimeException("Question not found"));
             java.util.Set<com.example.Qpoint.models.Topic> questionTopics = question.getTopics();
             List<User> allUsers = userRepository.findAll();
@@ -152,7 +152,7 @@ public class AnswerRequestService {
      * Get all user IDs that the current user has already sent requests to for a specific question.
      */
     public List<Long> getAlreadyRequestedUserIds(Long questionId, Long requesterId) {
-        Post question = questionRepository.findById(questionId)
+        Post question = postRepository.findById(questionId)
                 .orElseThrow(() -> new RuntimeException("Question not found"));
         User requester = userRepository.findById(requesterId)
                 .orElseThrow(() -> new RuntimeException("User not found"));

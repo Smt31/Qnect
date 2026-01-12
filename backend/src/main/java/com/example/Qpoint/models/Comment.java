@@ -40,6 +40,10 @@ public class Comment {
     @Column(nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean isAiGenerated = false;
+
     // For nested replies
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")

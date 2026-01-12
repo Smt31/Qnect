@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { commentApi } from '../../api';
 import CommentItem from './CommentItem';
 
-export default function CommentList({ postId, me, postAuthorId }) {
+const CommentList = forwardRef(function CommentList({ postId, me, postAuthorId }, ref) {
     const [comments, setComments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newComment, setNewComment] = useState('');
@@ -12,7 +12,17 @@ export default function CommentList({ postId, me, postAuthorId }) {
         try {
             // Assuming getCommentsForPost returns top-level comments with nested replies
             const res = await commentApi.getCommentsForPost(postId);
-            const items = Array.isArray(res) ? res : (res.content || []);
+            let items = Array.isArray(res) ? res : (res.content || []);
+
+            // Sort comments: AI-generated first, then by date (newest first)
+            items = items.sort((a, b) => {
+                // AI comments always come first
+                if (a.isAiGenerated && !b.isAiGenerated) return -1;
+                if (!a.isAiGenerated && b.isAiGenerated) return 1;
+                // Otherwise sort by date (newest first)
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+
             setComments(items);
         } catch (err) {
             console.error(err);
@@ -20,6 +30,11 @@ export default function CommentList({ postId, me, postAuthorId }) {
             setLoading(false);
         }
     };
+
+    // Expose refreshComments to parent via ref
+    useImperativeHandle(ref, () => ({
+        refreshComments: fetchComments
+    }));
 
     useEffect(() => {
         fetchComments();
@@ -83,4 +98,6 @@ export default function CommentList({ postId, me, postAuthorId }) {
             </form>
         </div>
     );
-}
+});
+
+export default CommentList;

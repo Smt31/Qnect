@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAuthToken, userApi, questionApi } from '../api';
+import { getAuthToken, userApi, questionApi, aiApi } from '../api';
 import { useQuestion, useCurrentUser, useQuestionVoteCounts, useQuestionVoteStatus, useVoteQuestion, useBookmarkPost, useUnbookmarkPost, useBookmarkStatus } from '../api/queryHooks';
 import Navbar from '../components/Home/Navbar';
 import FeedImage from '../components/FeedImage';
@@ -25,6 +25,9 @@ export default function QuestionPage() {
 
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [hasAiAnswer, setHasAiAnswer] = useState(false);
+  const commentListRef = useRef();
 
   useEffect(() => {
     const token = getAuthToken();
@@ -52,6 +55,22 @@ export default function QuestionPage() {
       loadFollowStatus();
     }
   }, [question, me]);
+
+  // Check if AI answer already exists
+  useEffect(() => {
+    const checkAiAnswer = async () => {
+      if (questionId) {
+        try {
+          const result = await aiApi.hasAnswer(questionId);
+          setHasAiAnswer(result.hasAiAnswer);
+        } catch (e) {
+          // Silently fail - assume no AI answer
+          setHasAiAnswer(false);
+        }
+      }
+    };
+    checkAiAnswer();
+  }, [questionId]);
 
 
 
@@ -115,6 +134,25 @@ export default function QuestionPage() {
     } catch (error) {
       console.error('Failed to delete question:', error);
       alert('Failed to delete question');
+    }
+  };
+
+  const handleAskAi = async () => {
+    if (aiGenerating || hasAiAnswer) return;
+
+    setAiGenerating(true);
+    try {
+      await aiApi.generateAnswer(questionId);
+      setHasAiAnswer(true);
+      // Refresh comments to show the new AI answer
+      if (commentListRef.current?.refreshComments) {
+        commentListRef.current.refreshComments();
+      }
+    } catch (e) {
+      console.error('Failed to generate AI answer:', e);
+      alert(e.message || 'Failed to generate AI answer');
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -229,6 +267,30 @@ export default function QuestionPage() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                   </button>
                 )}
+
+                {/* Ask Cue Button - only visible to post owner and when no AI answer exists */}
+                {me?.userId === question.author?.id && !hasAiAnswer && (
+                  <button
+                    className={`flex flex-col items-center justify-center w-12 h-12 rounded-full border transition-all ${aiGenerating
+                      ? 'bg-purple-100 text-purple-600 border-purple-300 cursor-wait'
+                      : 'border-gray-200 bg-white text-gray-400 hover:text-purple-600 hover:border-purple-300 hover:bg-purple-50'
+                      }`}
+                    onClick={handleAskAi}
+                    disabled={aiGenerating}
+                    title={aiGenerating ? "Asking Cue..." : "Ask Cue for an answer"}
+                  >
+                    {aiGenerating ? (
+                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -308,7 +370,7 @@ export default function QuestionPage() {
 
         {/* Comments Section (Acting as Answers) */}
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
-          <CommentList postId={question.id} me={me} postAuthorId={question.author?.id} />
+          <CommentList ref={commentListRef} postId={question.id} me={me} postAuthorId={question.author?.id} />
         </div>
       </div>
 

@@ -4,7 +4,7 @@ import com.example.Qpoint.dto.UserProfileDto;
 import com.example.Qpoint.dto.UserStatsDto;
 import com.example.Qpoint.dto.SuggestionsDto;
 import com.example.Qpoint.service.UserService;
-import com.example.Qpoint.service.QuestionService;
+import com.example.Qpoint.service.PostService;
 import com.example.Qpoint.service.AnswerService;
 import com.example.Qpoint.dto.FeedPostDto;
 import com.example.Qpoint.dto.AnswerResponseDto;
@@ -21,12 +21,12 @@ import com.example.Qpoint.config.CustomUserDetails;
 public class UserController {
 
     private final UserService userService;
-    private final QuestionService questionService;
+    private final PostService postService;
     private final AnswerService answerService;
 
-    public UserController(UserService userService, QuestionService questionService, AnswerService answerService) {
+    public UserController(UserService userService, PostService postService, AnswerService answerService) {
         this.userService = userService;
-        this.questionService = questionService;
+        this.postService = postService;
         this.answerService = answerService;
     }
 
@@ -230,7 +230,7 @@ public class UserController {
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Page<FeedPostDto> questions = questionService.getUserQuestions(id, page, size);
+        Page<FeedPostDto> questions = postService.getUserQuestions(id, page, size);
         return ResponseEntity.ok(questions);
     }
     

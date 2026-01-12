@@ -149,6 +149,7 @@ public class CommentService {
         dto.setUpvotes(comment.getUpvotes());
         dto.setDownvotes(comment.getDownvotes());
         dto.setCreatedAt(comment.getCreatedAt());
+        dto.setIsAiGenerated(comment.getIsAiGenerated());
         
         if (comment.getParent() != null) {
             dto.setParentId(comment.getParent().getId());
@@ -170,5 +171,44 @@ public class CommentService {
         }
 
         return dto;
+    }
+
+    /**
+     * Creates an AI-generated comment for a post.
+     */
+    @Transactional
+    public Comment createAiComment(Long postId, User aiUser, String content) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+        // Check if AI comment already exists for this post
+        if (commentRepository.existsByPostAndIsAiGeneratedTrue(post)) {
+            throw new RuntimeException("AI answer already exists for this post");
+        }
+
+        Comment comment = Comment.builder()
+                .post(post)
+                .author(aiUser)
+                .content(content)
+                .isAiGenerated(true)
+                .build();
+
+        Comment savedComment = commentRepository.save(comment);
+
+        // Increment comment count on post
+        post.setCommentsCount(post.getCommentsCount() + 1);
+        postRepository.save(post);
+
+        return savedComment;
+    }
+
+    /**
+     * Checks if an AI comment exists for the given post.
+     */
+    @Transactional(readOnly = true)
+    public boolean hasAiComment(Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        return commentRepository.existsByPostAndIsAiGeneratedTrue(post);
     }
 }

@@ -219,4 +219,10 @@ export const chatApi = {
   markAsRead: (otherUserId) => put(`/api/chat/read/${otherUserId}`, {}, true),
 };
 
+export const aiApi = {
+  generateAnswer: (postId) => post(`/api/ai/generate-answer/${postId}`, {}, true),
+  hasAnswer: (postId) => get(`/api/ai/has-answer/${postId}`, true),
+};
+
 export { API_URL };
+

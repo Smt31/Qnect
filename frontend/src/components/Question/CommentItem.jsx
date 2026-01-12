@@ -247,14 +247,35 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
 
     const score = upvotes - downvotes;
 
+    // AI comment styling
+    const isAiComment = comment.isAiGenerated;
+
     // Styling: Root comments have borders/spacing. Replies are simpler.
     // Replies (depth > 0) get standard left indent.
+    // AI comments get special gradient styling
+    const baseClasses = depth === 0
+        ? 'border-b border-gray-100 py-4'
+        : 'ml-8 mt-3 pl-3 border-l-2 border-gray-100';
+
+    const aiClasses = isAiComment && depth === 0
+        ? 'relative bg-gradient-to-r from-purple-50 via-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-transparent bg-clip-padding shadow-sm before:absolute before:inset-0 before:-z-10 before:rounded-xl before:p-[2px] before:bg-gradient-to-r before:from-purple-400 before:via-blue-400 before:to-indigo-400'
+        : '';
+
     return (
-        <div className={`text-sm ${depth === 0 ? 'border-b border-gray-100 py-4' : 'ml-8 mt-3 pl-3 border-l-2 border-gray-100'}`}>
+        <div className={`text-sm ${baseClasses} ${aiClasses}`}>
             <div className="flex gap-3">
                 <Link to={`/profile/${comment.author?.userId}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0 ${comment.author?.userId === me?.userId ? 'bg-indigo-500' : 'bg-gray-400'}`}>
-                        {comment.author?.avatarUrl ? (
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0 ${isAiComment
+                        ? 'bg-gradient-to-br from-purple-500 to-indigo-600'
+                        : comment.author?.userId === me?.userId
+                            ? 'bg-indigo-500'
+                            : 'bg-gray-400'
+                        }`}>
+                        {isAiComment ? (
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                        ) : comment.author?.avatarUrl ? (
                             <img src={comment.author.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
                         ) : (
                             comment.author?.fullName?.[0] || 'U'
@@ -267,6 +288,27 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
                         <Link to={`/profile/${comment.author?.userId}`} className="font-semibold text-gray-900 hover:text-red-500">
                             {comment.author?.fullName || 'User'}
                         </Link>
+
+                        {/* Cue Badge */}
+                        {isAiComment && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-semibold shadow-sm">
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                                Cue
+                            </span>
+                        )}
+
+                        {/* Pinned indicator for AI comments */}
+                        {isAiComment && depth === 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                </svg>
+                                Pinned
+                            </span>
+                        )}
+
                         <span className="text-gray-400 text-xs">
                             • {new Date(comment.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                         </span>
@@ -350,8 +392,8 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
                                         <div
                                             key={user.userId}
                                             className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${index === selectedSuggestionIndex
-                                                    ? 'bg-red-50'
-                                                    : 'hover:bg-gray-50'
+                                                ? 'bg-red-50'
+                                                : 'hover:bg-gray-50'
                                                 }`}
                                             onClick={() => handleMentionSelect(user)}
                                             onMouseEnter={() => setSelectedSuggestionIndex(index)}

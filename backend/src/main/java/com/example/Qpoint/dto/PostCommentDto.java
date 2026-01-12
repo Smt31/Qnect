@@ -13,6 +13,7 @@ public class PostCommentDto {
     private Integer downvotes;
     private Instant createdAt;
     private Long parentId;
+    private Boolean isAiGenerated;
     private java.util.List<PostCommentDto> replies;
 
     @Data

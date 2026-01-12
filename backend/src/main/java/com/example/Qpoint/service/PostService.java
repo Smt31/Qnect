@@ -247,6 +247,17 @@ public class PostService {
         return getFeedForUser(userId, FeedTab.FOR_YOU, page, size);
     }
 
+    /**
+     * Get questions posted by a specific user.
+     */
+    public Page<FeedPostDto> getUserQuestions(Long userId, int page, int size) {
+        User author = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return postRepository.findByAuthorOrderByCreatedAtDesc(author, pageable)
+                .map(post -> convertToFeedPostDto(post, null));
+    }
+
     public Page<FeedPostDto> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Post> posts = postRepository.findAll(pageable);
