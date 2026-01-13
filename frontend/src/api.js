@@ -190,6 +190,7 @@ export const userApi = {
   getUserFollowing: (id) => get(`/api/users/${id}/following`, true),
   removeFollower: (id) => del(`/api/users/me/followers/${id}`, true),
   getUserQuestions: (id, page = 0, size = 10) => get(`/api/users/${id}/questions?page=${page}&size=${size}`, true),
+  getUserPostsByType: (id, type, page = 0, size = 10) => get(`/api/users/${id}/posts-by-type?type=${type}&page=${page}&size=${size}`, true),
   getUserAnswers: (id, page = 0, size = 10) => get(`/api/users/${id}/answers?page=${page}&size=${size}`, true),
   searchUsers: (query, page = 0, size = 10) => get(`/api/users/search?query=${query}&page=${page}&size=${size}`, true),
   updateTopics: (topics) => put('/api/users/me/topics', { topics }, true),
@@ -222,6 +223,7 @@ export const chatApi = {
 export const aiApi = {
   generateAnswer: (postId) => post(`/api/ai/generate-answer/${postId}`, {}, true),
   hasAnswer: (postId) => get(`/api/ai/has-answer/${postId}`, true),
+  refinePost: (title, description) => post('/api/ai/refine', { title, description }, true),
 };
 
 export { API_URL };

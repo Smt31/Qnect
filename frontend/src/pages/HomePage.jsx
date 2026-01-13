@@ -10,6 +10,7 @@ import RightSidebar from '../components/Home/RightSidebar';
 import MobileNav from '../components/Home/MobileNav';
 import FeedCard from '../components/Feed/FeedCard';
 import ShareModal from '../components/ShareModal';
+import RefineWithCue from '../components/RefineWithCue';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -62,6 +63,9 @@ export default function HomePage() {
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharePost, setSharePost] = useState(null);
+
+  // Refine with CUE state
+  const [refineOpen, setRefineOpen] = useState(false);
 
   const handleShare = (post) => {
     setSharePost(post);
@@ -583,23 +587,48 @@ export default function HomePage() {
                   />
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  {/* Refine with CUE button */}
                   <button
                     type="button"
-                    onClick={() => setAskOpen(false)}
-                    className="px-5 py-2 text-gray-600 hover:bg-gray-100 font-medium rounded-full transition-colors"
+                    onClick={() => setRefineOpen(true)}
+                    disabled={!questionTitle && !questionContent}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Cancel
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    Refine with CUE
                   </button>
-                  <button
-                    type="submit"
-                    className={`px-6 py-2 text-white font-medium rounded-full shadow-md hover:shadow-lg transition-all transform active:scale-95 ${activeCreateTab === 'QUESTION' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'}`}
-                    disabled={createLoading}
-                  >
-                    {createLoading ? 'Publishing...' : (activeCreateTab === 'QUESTION' ? 'Add question' : 'Post')}
-                  </button>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setAskOpen(false)}
+                      className="px-5 py-2 text-gray-600 hover:bg-gray-100 font-medium rounded-full transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className={`px-6 py-2 text-white font-medium rounded-full shadow-md hover:shadow-lg transition-all transform active:scale-95 ${activeCreateTab === 'QUESTION' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'}`}
+                      disabled={createLoading}
+                    >
+                      {createLoading ? 'Publishing...' : (activeCreateTab === 'QUESTION' ? 'Add question' : 'Post')}
+                    </button>
+                  </div>
                 </div>
               </form>
+
+              {/* Refine with CUE Panel */}
+              <RefineWithCue
+                isOpen={refineOpen}
+                onClose={() => setRefineOpen(false)}
+                title={questionTitle}
+                description={questionContent}
+                onUseTitle={(newTitle) => setQuestionTitle(newTitle)}
+                onUseDescription={(newDesc) => setQuestionContent(newDesc)}
+              />
             </div>
           </div>
         </div>

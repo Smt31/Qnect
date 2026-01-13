@@ -258,6 +258,17 @@ public class PostService {
                 .map(post -> convertToFeedPostDto(post, null));
     }
 
+    /**
+     * Get posts by a specific user filtered by type (QUESTION or POST).
+     */
+    public Page<FeedPostDto> getUserPostsByType(Long userId, com.example.Qpoint.models.PostType type, int page, int size) {
+        User author = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return postRepository.findByAuthorAndTypeOrderByCreatedAtDesc(author, type, pageable)
+                .map(post -> convertToFeedPostDto(post, null));
+    }
+
     public Page<FeedPostDto> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Post> posts = postRepository.findAll(pageable);

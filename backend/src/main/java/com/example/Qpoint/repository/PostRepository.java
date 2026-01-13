@@ -1,6 +1,7 @@
 package com.example.Qpoint.repository;
 
 import com.example.Qpoint.models.Post;
+import com.example.Qpoint.models.PostType;
 import com.example.Qpoint.models.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +21,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     
     Page<Post> findByAuthorOrderByCreatedAtDesc(User author, Pageable pageable);
     
+    Page<Post> findByAuthorAndTypeOrderByCreatedAtDesc(User author, PostType type, Pageable pageable);
+    
     @Query("SELECT p FROM Post p WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.content) LIKE LOWER(CONCAT('%', :query, '%'))")
     Page<Post> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(@Param("query") String title, @Param("query") String content, Pageable pageable);
     
@@ -33,3 +36,4 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p WHERE p.answerCount = 0 ORDER BY p.createdAt DESC")
     Page<Post> findUnansweredPosts(Pageable pageable);
 }
+

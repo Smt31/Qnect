@@ -243,6 +243,21 @@ public class UserController {
         return ResponseEntity.ok(answers);
     }
     
+    @GetMapping("/{id}/posts-by-type")
+    public ResponseEntity<Page<FeedPostDto>> getUserPostsByType(
+            @PathVariable Long id,
+            @RequestParam String type,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            com.example.Qpoint.models.PostType postType = com.example.Qpoint.models.PostType.valueOf(type.toUpperCase());
+            Page<FeedPostDto> posts = postService.getUserPostsByType(id, postType, page, size);
+            return ResponseEntity.ok(posts);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
     @GetMapping("/search")
     public ResponseEntity<Page<UserProfileDto>> searchUsers(
             @RequestParam String query,

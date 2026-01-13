@@ -31,7 +31,8 @@ export default function MyQuestionsPage() {
       const meRes = await userApi.getCurrentUser();
       setMe(meRes);
 
-      const res = await userApi.getUserQuestions(meRes.userId, 0, 30);
+      // Get posts filtered by type QUESTION
+      const res = await userApi.getUserPostsByType(meRes.userId, 'QUESTION', 0, 30);
       const items = Array.isArray(res) ? res : (res.content || []);
       setQuestions(items);
     } catch (e) {
@@ -67,7 +68,8 @@ export default function MyQuestionsPage() {
 
         <main className="flex-1 md:ml-64 p-6 max-w-5xl">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
-            <h1 className="text-xl font-bold text-gray-900">My Posts</h1>
+            <h1 className="text-xl font-bold text-gray-900">My Questions</h1>
+            <p className="text-sm text-gray-500 mt-1">Questions you've asked</p>
           </div>
 
           {loading ? (

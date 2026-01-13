@@ -157,10 +157,13 @@ public class UserService {
         // Get top users by reputation who are NOT followed by current user
         List<User> topUsers = userRepository.findTopUsersNotFollowedBy(
                 userId,
-                org.springframework.data.domain.PageRequest.of(0, 5)
+                org.springframework.data.domain.PageRequest.of(0, 10) // Fetch more to account for filtering
         );
 
+        // Filter out system users (like Cue AI)
         List<UserProfileDto> suggestions = topUsers.stream()
+                .filter(user -> !isSystemUser(user))
+                .limit(5)
                 .map(this::convertToUserProfileDto)
                 .collect(Collectors.toList());
 
@@ -175,7 +178,16 @@ public class UserService {
                 query,
                 org.springframework.data.domain.PageRequest.of(page, size)
         );
-        return users.map(this::convertToUserProfileDto);
+        // Filter out system users from search results
+        return users.map(user -> isSystemUser(user) ? null : convertToUserProfileDto(user));
+    }
+
+    /**
+     * Check if a user is a system user (like Cue AI).
+     * System users have emails ending with @qpoint.system
+     */
+    private boolean isSystemUser(User user) {
+        return user.getEmail() != null && user.getEmail().endsWith("@qpoint.system");
     }
 
     @Transactional

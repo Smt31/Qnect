@@ -3,6 +3,7 @@ package com.example.Qpoint.models;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -93,6 +94,14 @@ public class Post {
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PostView> postViews;
+
+    @OneToMany(
+            mappedBy = "question",   // MUST match field name in AnswerRequest
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<AnswerRequest> answerRequests = new ArrayList<>();
+
 
     @PreUpdate
     public void preUpdate() {

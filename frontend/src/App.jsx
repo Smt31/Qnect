@@ -9,6 +9,7 @@ import ProfilePage from './pages/ProfilePage';
 import SearchPage from './pages/SearchPage';
 import QuestionPage from './pages/QuestionPage';
 import MyQuestionsPage from './pages/MyQuestionsPage';
+import MyPostsPage from './pages/MyPostsPage';
 import BookmarksPage from './pages/BookmarksPage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/ask" element={<HomePage />} />
             <Route path="/question/:id" element={<QuestionPage />} />
             <Route path="/my-questions" element={<MyQuestionsPage />} />
+            <Route path="/my-posts" element={<MyPostsPage />} />
             <Route path="/bookmarks" element={<BookmarksPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/chat" element={<ChatPage />} />
