@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
+import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByAuthorInOrderByCreatedAtDesc(List<User> authors, Pageable pageable);
@@ -35,5 +36,34 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     @Query("SELECT p FROM Post p WHERE p.answerCount = 0 ORDER BY p.createdAt DESC")
     Page<Post> findUnansweredPosts(Pageable pageable);
+
+    // ============================================================================
+    // OPTIMIZED FEED QUERIES - Uses JOIN FETCH to prevent N+1 on author
+    // ============================================================================
+
+    // Recent posts (excludes own posts and NEWS_DISCUSSION)
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
+    Page<Post> findAllExcludingUser(@Param("userId") Long userId, Pageable pageable);
+
+    // For You feed (engagement-ranked, excludes own posts)
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
+    Page<Post> findForYouPostsExcludingUser(@Param("userId") Long userId, Pageable pageable);
+
+    // Unanswered posts (excludes own posts)
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.answerCount = 0 AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
+    Page<Post> findUnansweredPostsExcludingUser(@Param("userId") Long userId, Pageable pageable);
+
+    // Find news discussion post by external article URL
+    Optional<Post> findByExternalUrl(String externalUrl);
+
+    // Bulk fetch news discussion posts by external URLs (avoids N+1)
+    List<Post> findAllByExternalUrlIn(List<String> externalUrls);
+
+    // ============================================================================
+    // BULK TAG FETCHING - Native query to avoid N+1 on ElementCollection
+    // ============================================================================
+    
+    @Query(value = "SELECT post_id, tag FROM post_tags WHERE post_id IN :postIds", nativeQuery = true)
+    List<Object[]> findTagsByPostIds(@Param("postIds") List<Long> postIds);
 }
 

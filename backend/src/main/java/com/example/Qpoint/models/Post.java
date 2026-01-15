@@ -34,6 +34,10 @@ public class Post {
     @Column(length = 2048)
     private String imageUrl;
 
+    // External URL for NEWS_DISCUSSION posts (links to news article)
+    @Column(length = 2048)
+    private String externalUrl;
+
     @ElementCollection
     @CollectionTable(name = "post_tags", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "tag")

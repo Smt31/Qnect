@@ -226,5 +226,30 @@ export const aiApi = {
   refinePost: (title, description) => post('/api/ai/refine', { title, description }, true),
 };
 
-export { API_URL };
+export const newsApi = {
+  // Get all news or by category
+  getNews: (category) => {
+    const params = category ? `?category=${encodeURIComponent(category)}` : '';
+    return get(`/api/news${params}`, true);
+  },
 
+  // Get available categories
+  getCategories: () => get('/api/news/categories', true),
+
+  // Get AI context for an article
+  getContext: (title, description, content) =>
+    post('/api/news/context', { title, description, content }, true),
+
+  // Get or create discussion post for an article
+  getDiscussion: (url, title, imageUrl) =>
+    post('/api/news/discussion', { url, title, imageUrl }, true),
+
+  // Add a comment to news discussion
+  addComment: (url, title, imageUrl, content) =>
+    post('/api/news/comment', { url, title, imageUrl, content }, true),
+
+  // Get comments for a news article
+  getComments: (url) => get(`/api/news/comments?url=${encodeURIComponent(url)}`, true),
+};
+
+export { API_URL };

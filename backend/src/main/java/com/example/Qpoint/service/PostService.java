@@ -233,14 +233,16 @@ public class PostService {
         Page<Post> posts;
         if (tab == null) tab = FeedTab.FOR_YOU;
 
+        // Use queries that exclude user's own posts and NEWS_DISCUSSION type
         switch (tab) {
-            case RECENT -> posts = postRepository.findAllOrderByCreatedAtDesc(pageable);
-            case UNANSWERED -> posts = postRepository.findUnansweredPosts(pageable);
-            case FOR_YOU -> posts = postRepository.findForYouPosts(pageable);
-            default -> posts = postRepository.findForYouPosts(pageable);
+            case RECENT -> posts = postRepository.findAllExcludingUser(userId, pageable);
+            case UNANSWERED -> posts = postRepository.findUnansweredPostsExcludingUser(userId, pageable);
+            case FOR_YOU -> posts = postRepository.findForYouPostsExcludingUser(userId, pageable);
+            default -> posts = postRepository.findForYouPostsExcludingUser(userId, pageable);
         }
 
-        return posts.map(post -> convertToFeedPostDto(post, userId));
+        // Use bulk conversion to avoid N+1 queries
+        return convertToFeedPostDtoBulk(posts, userId);
     }
 
     public Page<FeedPostDto> getFeedForUser(Long userId, int page, int size) {
@@ -389,6 +391,167 @@ public class PostService {
             dto.setCurrentUserVoteStatus("NONE");
             dto.setIsBookmarked(false);
         }
+
+        return dto;
+    }
+
+    /**
+     * ============================================================================
+     * OPTIMIZED BULK DTO CONVERSION
+     * ============================================================================
+     * 
+     * Total queries: 4 (constant, regardless of page size)
+     * 1. Posts + Authors (JOIN FETCH in repository)
+     * 2. Votes (bulk IN query)
+     * 3. Bookmarks (bulk IN query)
+     * 4. Tags (bulk IN query via native SQL)
+     * 
+     * Previous: 3N + 1 queries (31 for 10 posts)
+     * Now: 4 queries (always)
+     */
+    private Page<FeedPostDto> convertToFeedPostDtoBulk(Page<Post> posts, Long userId) {
+        if (posts.isEmpty()) {
+            return posts.map(this::convertToFeedPostDtoWithoutUserContext);
+        }
+
+        java.util.List<Post> postList = posts.getContent();
+        java.util.List<Long> postIds = postList.stream().map(Post::getId).toList();
+
+        // ========================================
+        // BULK FETCH 1: Tags for all posts
+        // ========================================
+        java.util.Map<Long, java.util.List<String>> tagsMap = fetchTagsBulk(postIds);
+
+        // ========================================
+        // BULK FETCH 2 & 3: Votes and Bookmarks (only if user is logged in)
+        // ========================================
+        java.util.Map<Long, String> voteMap = java.util.Collections.emptyMap();
+        java.util.Set<Long> bookmarkedPostIds = java.util.Collections.emptySet();
+
+        if (userId != null) {
+            User user = userRepository.getReferenceById(userId);
+            
+            // Votes: single query
+            java.util.List<com.example.Qpoint.models.Vote> votes = voteRepository.findAllByUserAndEntityTypeAndEntityIdIn(
+                    user, com.example.Qpoint.models.Vote.EntityType.QUESTION, postIds);
+            
+            voteMap = votes.stream()
+                    .collect(java.util.stream.Collectors.toMap(
+                            com.example.Qpoint.models.Vote::getEntityId,
+                            v -> v.getVoteType().name(),
+                            (a, b) -> a));
+
+            // Bookmarks: single query
+            java.util.List<com.example.Qpoint.models.Bookmark> bookmarks = 
+                    bookmarkRepository.findAllByUserAndPostIn(user, postList);
+            
+            bookmarkedPostIds = bookmarks.stream()
+                    .map(b -> b.getPost().getId())
+                    .collect(java.util.stream.Collectors.toSet());
+        }
+
+        // ========================================
+        // BUILD DTOs with O(1) Map lookups (no queries inside loop)
+        // ========================================
+        final java.util.Map<Long, String> finalVoteMap = voteMap;
+        final java.util.Set<Long> finalBookmarkedPostIds = bookmarkedPostIds;
+
+        return posts.map(post -> {
+            FeedPostDto dto = new FeedPostDto();
+            
+            // Basic fields (no query - already loaded)
+            dto.setId(post.getId());
+            dto.setTitle(post.getTitle());
+            dto.setContent(post.getContent());
+            dto.setImageUrl(post.getImageUrl());
+            dto.setLikesCount(post.getLikesCount());
+            dto.setUpvotes(post.getUpvotes());
+            dto.setDownvotes(post.getDownvotes());
+            dto.setAnswerCount(post.getAnswerCount());
+            dto.setCommentsCount(post.getCommentsCount());
+            dto.setViewsCount(post.getViewsCount());
+            dto.setCreatedAt(post.getCreatedAt());
+            dto.setType(post.getType() != null ? post.getType().name() : "QUESTION");
+
+            // Tags from Map (no query)
+            dto.setTags(tagsMap.getOrDefault(post.getId(), java.util.Collections.emptyList()));
+
+            // Author (already loaded via JOIN FETCH, no query)
+            FeedPostDto.AuthorDto authorDto = new FeedPostDto.AuthorDto();
+            authorDto.setId(post.getAuthor().getUserId());
+            authorDto.setFullName(post.getAuthor().getFullName());
+            authorDto.setAvatarUrl(post.getAuthor().getAvatarUrl());
+            dto.setAuthor(authorDto);
+
+            // Vote status from Map (no query)
+            dto.setCurrentUserVoteStatus(finalVoteMap.getOrDefault(post.getId(), "NONE"));
+            
+            // Bookmark status from Set (no query)
+            dto.setIsBookmarked(finalBookmarkedPostIds.contains(post.getId()));
+
+            return dto;
+        });
+    }
+
+    /**
+     * Bulk fetch tags for multiple posts using native SQL.
+     * Returns Map: postId -> List<tag>
+     * 
+     * Uses native query: SELECT post_id, tag FROM post_tags WHERE post_id IN (...)
+     * This is a SINGLE query instead of N lazy-load queries.
+     */
+    private java.util.Map<Long, java.util.List<String>> fetchTagsBulk(java.util.List<Long> postIds) {
+        if (postIds.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+
+        // Initialize result map with empty lists
+        java.util.Map<Long, java.util.List<String>> result = new java.util.HashMap<>();
+        for (Long postId : postIds) {
+            result.put(postId, new java.util.ArrayList<>());
+        }
+
+        // Execute single native query to fetch all tags
+        java.util.List<Object[]> tagRows = postRepository.findTagsByPostIds(postIds);
+        
+        // Build the map from query results
+        for (Object[] row : tagRows) {
+            Long postId = ((Number) row[0]).longValue();
+            String tag = (String) row[1];
+            result.computeIfAbsent(postId, k -> new java.util.ArrayList<>()).add(tag);
+        }
+        
+        return result;
+    }
+
+
+    /**
+     * Simple DTO conversion without user context (for anonymous users).
+     */
+    private FeedPostDto convertToFeedPostDtoWithoutUserContext(Post post) {
+        FeedPostDto dto = new FeedPostDto();
+        dto.setId(post.getId());
+        dto.setTitle(post.getTitle());
+        dto.setContent(post.getContent());
+        dto.setImageUrl(post.getImageUrl());
+        dto.setTags(post.getTags() != null ? post.getTags() : java.util.Collections.emptyList());
+        dto.setLikesCount(post.getLikesCount());
+        dto.setUpvotes(post.getUpvotes());
+        dto.setDownvotes(post.getDownvotes());
+        dto.setAnswerCount(post.getAnswerCount());
+        dto.setCommentsCount(post.getCommentsCount());
+        dto.setViewsCount(post.getViewsCount());
+        dto.setCreatedAt(post.getCreatedAt());
+        dto.setType(post.getType() != null ? post.getType().name() : "QUESTION");
+
+        FeedPostDto.AuthorDto authorDto = new FeedPostDto.AuthorDto();
+        authorDto.setId(post.getAuthor().getUserId());
+        authorDto.setFullName(post.getAuthor().getFullName());
+        authorDto.setAvatarUrl(post.getAuthor().getAvatarUrl());
+        dto.setAuthor(authorDto);
+
+        dto.setCurrentUserVoteStatus("NONE");
+        dto.setIsBookmarked(false);
 
         return dto;
     }

@@ -47,6 +47,7 @@ public class CacheConfig {
      * - @Cacheable("posts") for post/question lookups  
      * - @Cacheable("topics") for topic lists
      * - @Cacheable("userStats") for user statistics
+     * - @Cacheable("news") for news articles (15 min TTL)
      * - @CacheEvict to invalidate on updates
      */
 }

@@ -2,5 +2,6 @@ package com.example.Qpoint.models;
 
 public enum PostType {
     QUESTION,
-    POST
+    POST,
+    NEWS_DISCUSSION
 }

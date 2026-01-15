@@ -59,8 +59,21 @@ public class GeminiService {
 
     /**
      * Calls the Gemini API with a specific model.
+     * If model is null, uses primary model with fallback.
      */
-    private String callGeminiApi(String model, String prompt) {
+    public String callGeminiApi(String model, String prompt) {
+        if (model == null) {
+            // Try primary model first, fallback if needed
+            try {
+                return callGeminiApiInternal(primaryModel, prompt);
+            } catch (Exception e) {
+                return callGeminiApiInternal(fallbackModel, prompt);
+            }
+        }
+        return callGeminiApiInternal(model, prompt);
+    }
+
+    private String callGeminiApiInternal(String model, String prompt) {
         String url = String.format(
             "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
             model, apiKey

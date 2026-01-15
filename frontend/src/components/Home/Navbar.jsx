@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { queryClient } from '../../App';
 import { useUnreadNotificationCount } from '../../api/queryHooks';
+import { useMobileSidebar } from '../../context/MobileSidebarContext';
 
 const Navbar = ({ user }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const { toggle: toggleSidebar } = useMobileSidebar();
 
   // Fetch unread notification count
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
@@ -42,6 +44,17 @@ const Navbar = ({ user }) => {
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-[#EDEDED] h-16">
       <div className="flex h-full w-full items-center">
+        {/* Hamburger menu for mobile */}
+        <button
+          className="md:hidden ml-4 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          onClick={toggleSidebar}
+          aria-label="Open menu"
+        >
+          <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
         {/* Left (logo) */}
         <div className="flex h-full w-auto items-center px-4 md:w-64 md:shrink-0 md:px-6">
           <div className="flex items-center gap-3 text-[#1A1A1A] cursor-pointer" onClick={handleLogoClick}>
