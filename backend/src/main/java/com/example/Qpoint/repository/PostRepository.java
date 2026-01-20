@@ -14,6 +14,9 @@ import java.util.Optional;
 public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByAuthorInOrderByCreatedAtDesc(List<User> authors, Pageable pageable);
     
+    // Count posts by author for dynamic stats
+    long countByAuthor(User author);
+    
     @Query("SELECT p FROM Post p ORDER BY p.createdAt DESC")
     Page<Post> findAllOrderByCreatedAtDesc(Pageable pageable);
     
@@ -38,19 +41,19 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findUnansweredPosts(Pageable pageable);
 
     // ============================================================================
-    // OPTIMIZED FEED QUERIES - Uses JOIN FETCH to prevent N+1 on author
+    // OPTIMIZED FEED QUERIES - Author is eagerly fetched via Post entity
     // ============================================================================
 
     // Recent posts (excludes own posts and NEWS_DISCUSSION)
-    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
+    @Query("SELECT p FROM Post p WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
     Page<Post> findAllExcludingUser(@Param("userId") Long userId, Pageable pageable);
 
     // For You feed (engagement-ranked, excludes own posts)
-    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
+    @Query("SELECT p FROM Post p WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
     Page<Post> findForYouPostsExcludingUser(@Param("userId") Long userId, Pageable pageable);
 
     // Unanswered posts (excludes own posts)
-    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.answerCount = 0 AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
+    @Query("SELECT p FROM Post p WHERE p.author.userId <> :userId AND p.answerCount = 0 AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
     Page<Post> findUnansweredPostsExcludingUser(@Param("userId") Long userId, Pageable pageable);
 
     // Find news discussion post by external article URL
@@ -66,4 +69,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query(value = "SELECT post_id, tag FROM post_tags WHERE post_id IN :postIds", nativeQuery = true)
     List<Object[]> findTagsByPostIds(@Param("postIds") List<Long> postIds);
 }
+
+
 

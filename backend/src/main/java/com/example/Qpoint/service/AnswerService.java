@@ -6,8 +6,10 @@ import com.example.Qpoint.models.Answer;
 import com.example.Qpoint.models.Post;
 import com.example.Qpoint.models.User;
 import com.example.Qpoint.repository.AnswerRepository;
+import com.example.Qpoint.repository.AnswerRequestRepository;
 import com.example.Qpoint.repository.PostRepository;
 import com.example.Qpoint.repository.UserRepository;
+import com.example.Qpoint.models.AnswerRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,13 +21,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class AnswerService {
 
     private final AnswerRepository answerRepository;
+    private final AnswerRequestRepository answerRequestRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
 
     public AnswerService(AnswerRepository answerRepository,
+                         AnswerRequestRepository answerRequestRepository,
                          PostRepository postRepository,
                          UserRepository userRepository) {
         this.answerRepository = answerRepository;
+        this.answerRequestRepository = answerRequestRepository;
         this.postRepository = postRepository;
         this.userRepository = userRepository;
     }
@@ -52,8 +57,21 @@ public class AnswerService {
         // Update user answer count
         author.setAnswersCount(author.getAnswersCount() + 1);
         
-        // Add reputation for posting an answer (+3)
-        author.setReputation(author.getReputation() + 3);
+        // Add base reputation for posting an answer (+3)
+        int reputationBonus = 3;
+        
+        // Check if this user was requested to answer this question
+        // If so, award additional +5 reputation and mark request as ANSWERED
+        java.util.Optional<AnswerRequest> pendingRequest = answerRequestRepository
+                .findByQuestionAndRequestedToAndStatus(post, author, AnswerRequest.RequestStatus.PENDING);
+        if (pendingRequest.isPresent()) {
+            reputationBonus += 5; // +5 bonus for answering a requested question
+            AnswerRequest answerRequest = pendingRequest.get();
+            answerRequest.setStatus(AnswerRequest.RequestStatus.ANSWERED);
+            answerRequestRepository.save(answerRequest);
+        }
+        
+        author.setReputation(author.getReputation() + reputationBonus);
         userRepository.save(author);
 
         return convertToDto(saved);

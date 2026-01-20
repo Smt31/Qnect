@@ -25,4 +25,7 @@ public interface AnswerRequestRepository extends JpaRepository<AnswerRequest, Lo
     
     // Find all requests sent by a specific user for a specific question
     List<AnswerRequest> findByQuestionAndRequestedBy(Post question, User requestedBy);
+    
+    // Find a pending request for a specific question and expert
+    Optional<AnswerRequest> findByQuestionAndRequestedToAndStatus(Post question, User requestedTo, AnswerRequest.RequestStatus status);
 }

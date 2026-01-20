@@ -189,20 +189,12 @@ public class UserController {
 
     @GetMapping("/{id}/followers")
     public ResponseEntity<List<UserProfileDto>> getUserFollowers(@PathVariable Long id) {
-        List<com.example.Qpoint.models.User> followers = userService.getUserFollowers(id);
-        List<UserProfileDto> followerDtos = followers.stream()
-                .map(userService::convertToUserProfileDto)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(followerDtos);
+        return ResponseEntity.ok(userService.getUserFollowers(id));
     }
 
     @GetMapping("/{id}/following")
     public ResponseEntity<List<UserProfileDto>> getUserFollowing(@PathVariable Long id) {
-        List<com.example.Qpoint.models.User> following = userService.getUserFollowing(id);
-        List<UserProfileDto> followingDtos = following.stream()
-                .map(userService::convertToUserProfileDto)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(followingDtos);
+        return ResponseEntity.ok(userService.getUserFollowing(id));
     }
 
     @DeleteMapping("/me/followers/{followerId}")

@@ -29,6 +29,9 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
     const [replyContent, setReplyContent] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    // Collapsible replies state (Instagram-style)
+    const [showReplies, setShowReplies] = useState(false);
+
     // @mention autocomplete
     const [showMentionDropdown, setShowMentionDropdown] = useState(false);
     const [mentionQuery, setMentionQuery] = useState('');
@@ -426,20 +429,39 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
                 </div>
             </div>
 
-            {/* Render Flattened Children (Only if Root) */}
+            {/* Render Flattened Children (Only if Root) - Instagram-style collapsible */}
             {isRoot && flatChildren.length > 0 && (
-                <div className="mt-1">
-                    {flatChildren.map(reply => (
-                        <CommentItem
-                            key={reply.id}
-                            comment={reply}
-                            postId={postId}
-                            refreshComments={refreshComments}
-                            me={me}
-                            depth={depth + 1}
-                            postAuthorId={postAuthorId}
-                        />
-                    ))}
+                <div className="mt-2">
+                    {!showReplies ? (
+                        <button
+                            onClick={() => setShowReplies(true)}
+                            className="flex items-center gap-2 text-xs text-gray-500 hover:text-red-500 transition-colors font-medium ml-11"
+                        >
+                            <span className="w-6 h-px bg-gray-300"></span>
+                            View {flatChildren.length} {flatChildren.length === 1 ? 'reply' : 'replies'}
+                        </button>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => setShowReplies(false)}
+                                className="flex items-center gap-2 text-xs text-gray-500 hover:text-red-500 transition-colors font-medium ml-11 mb-2"
+                            >
+                                <span className="w-6 h-px bg-gray-300"></span>
+                                Hide replies
+                            </button>
+                            {flatChildren.map(reply => (
+                                <CommentItem
+                                    key={reply.id}
+                                    comment={reply}
+                                    postId={postId}
+                                    refreshComments={refreshComments}
+                                    me={me}
+                                    depth={depth + 1}
+                                    postAuthorId={postAuthorId}
+                                />
+                            ))}
+                        </>
+                    )}
                 </div>
             )}
         </div>

@@ -15,6 +15,7 @@ public class ChatDTO {
         private Long receiverId;
         private String content; // Text content
         private String type; // TEXT, IMAGE, POST_SHARE, QUESTION_SHARE
+        private String attachmentUrl; // For IMAGE type
         private Long sharedPostId; // If sharing
     }
 

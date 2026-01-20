@@ -27,15 +27,18 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
     private final com.example.Qpoint.repository.TopicRepository topicRepository;
+    private final com.example.Qpoint.repository.PostRepository postRepository;
 
-    public UserService(UserRepository userRepository, FollowRepository followRepository, PasswordEncoder passwordEncoder, NotificationService notificationService, com.example.Qpoint.repository.TopicRepository topicRepository) {
+    public UserService(UserRepository userRepository, FollowRepository followRepository, PasswordEncoder passwordEncoder, NotificationService notificationService, com.example.Qpoint.repository.TopicRepository topicRepository, com.example.Qpoint.repository.PostRepository postRepository) {
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.passwordEncoder = passwordEncoder;
         this.notificationService = notificationService;
         this.topicRepository = topicRepository;
+        this.postRepository = postRepository;
     }
 
+    @Transactional(readOnly = true)
     @Cacheable(value = "users", key = "#userId")
     public UserProfileDto getUserProfile(Long userId) {
         User user = userRepository.findById(userId)
@@ -43,6 +46,7 @@ public class UserService {
         return convertToUserProfileDto(user);
     }
 
+    @Transactional(readOnly = true)
     public UserProfileDto getUserProfileByUsername(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -131,13 +135,14 @@ public class UserService {
         dto.setFollowingCount(updatedUser.getFollowingCount());
         dto.setQuestionsCount(updatedUser.getQuestionsCount());
         dto.setAnswersCount(updatedUser.getAnswersCount());
-        dto.setSkills(updatedUser.getSkills());
+        dto.setSkills(updatedUser.getSkills() != null ? new java.util.ArrayList<>(updatedUser.getSkills()) : null);
         dto.setVerified(updatedUser.getVerified());
         dto.setAllowPublicMessages(updatedUser.getAllowPublicMessages());
 
         return dto;
     }
 
+    @Transactional(readOnly = true)
     @Cacheable(value = "userStats", key = "#userId")
     public UserStatsDto getUserStats(Long userId) {
         User user = userRepository.findById(userId)
@@ -145,14 +150,16 @@ public class UserService {
 
         UserStatsDto dto = new UserStatsDto();
         dto.setReputation(user.getReputation());
-        dto.setFollowersCount(user.getFollowersCount());
-        dto.setFollowingCount(user.getFollowingCount());
-        dto.setQuestionsCount(user.getQuestionsCount());
+        // Calculate counts dynamically from database
+        dto.setFollowersCount((int) followRepository.countByFollowing(user));
+        dto.setFollowingCount((int) followRepository.countByFollower(user));
+        dto.setQuestionsCount((int) postRepository.countByAuthor(user));
         dto.setAnswersCount(user.getAnswersCount());
 
         return dto;
     }
 
+    @Transactional(readOnly = true)
     public SuggestionsDto getUserSuggestions(Long userId) {
         // Get top users by reputation who are NOT followed by current user
         List<User> topUsers = userRepository.findTopUsersNotFollowedBy(
@@ -173,6 +180,7 @@ public class UserService {
         return dto;
     }
 
+    @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<UserProfileDto> searchUsers(String query, int page, int size) {
         org.springframework.data.domain.Page<User> users = userRepository.searchUsers(
                 query,
@@ -234,15 +242,16 @@ public class UserService {
         );
     }
 
-    public List<User> getUserFollowers(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        List<Follow> follows = followRepository.findByFollowing(user);
-        return follows.stream()
-                .map(Follow::getFollower)
-                .collect(Collectors.toList());
-    }
-
+    @Transactional(readOnly = true)
+public List<UserProfileDto> getUserFollowers(Long userId) {
+    User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+    List<Follow> follows = followRepository.findByFollowing(user);
+    return follows.stream()
+            .map(f -> convertToUserProfileDto(f.getFollower()))
+            .collect(Collectors.toList());
+}
+    @Transactional(readOnly = true)
     public boolean isFollowing(Long followerId, Long followingId) {
         if (followerId.equals(followingId)) return false;
         User follower = userRepository.findById(followerId)
@@ -279,15 +288,15 @@ public class UserService {
         userRepository.save(following);
     }
 
-    public List<User> getUserFollowing(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        List<Follow> follows = followRepository.findByFollower(user);
-        return follows.stream()
-                .map(Follow::getFollowing)
-                .collect(Collectors.toList());
-    }
-
+    @Transactional(readOnly = true)
+public List<UserProfileDto> getUserFollowing(Long userId) {
+    User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+    List<Follow> follows = followRepository.findByFollower(user);
+    return follows.stream()
+            .map(f -> convertToUserProfileDto(f.getFollowing()))
+            .collect(Collectors.toList());
+}
     @Transactional
     public void removeFollower(Long userId, Long followerId) {
         // userId is 'me', followerId is the person I want to remove from my followers
@@ -311,6 +320,7 @@ public class UserService {
         userRepository.save(me);
     }
 
+    @Transactional(readOnly = true)
     public UserProfileDto convertToUserProfileDto(User user) {
         UserProfileDto dto = new UserProfileDto();
         dto.setUserId(user.getUserId());
@@ -326,7 +336,8 @@ public class UserService {
         dto.setFollowingCount(user.getFollowingCount());
         dto.setQuestionsCount(user.getQuestionsCount());
         dto.setAnswersCount(user.getAnswersCount());
-        dto.setSkills(user.getSkills());
+        // Create a defensive copy of skills to avoid LazyInitializationException after transaction closes
+        dto.setSkills(user.getSkills() != null ? new java.util.ArrayList<>(user.getSkills()) : null);
         dto.setVerified(user.getVerified());
         dto.setAllowPublicMessages(user.getAllowPublicMessages());
         return dto;

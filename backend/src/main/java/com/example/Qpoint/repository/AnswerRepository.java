@@ -15,6 +15,9 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
     Page<Answer> findByAuthorOrderByCreatedAtDesc(User author, Pageable pageable);
     void deleteByPost(Post post);
     
+    // Count answers for a post (accurate count from database)
+    long countByPost(Post post);
+    
     // Check if author has answered a question by a specific user (post author)
     boolean existsByAuthorAndPost_Author(User author, User postAuthor);
 }

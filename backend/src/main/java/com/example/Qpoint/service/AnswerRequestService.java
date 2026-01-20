@@ -65,11 +65,7 @@ public class AnswerRequestService {
                 .status(AnswerRequest.RequestStatus.PENDING)
                 .build();
 
-        answerRequestRepository.save(request);
-
-        // Add reputation to expert for receiving answer request (+5)
-        expert.setReputation(expert.getReputation() + 5);
-        userRepository.save(expert);
+        answerRequestRepository.save(request);        // Note: Reputation (+5) is awarded when the expert actually answers the question,\n        // not when they receive the request. See AnswerService.createAnswer()
 
         // Notify expert
         notificationService.createNotification(
@@ -93,7 +89,9 @@ public class AnswerRequestService {
             List<User> otherUsers = new java.util.ArrayList<>();
 
             for (User u : allUsers) {
+                 // Skip current user and AI user "Cue"
                  if (u.getUserId().equals(userId)) continue;
+                 if ("Cue".equalsIgnoreCase(u.getUsername()) || "Cue".equalsIgnoreCase(u.getFullName())) continue;
 
                  // Safe topic matching
                  boolean matches = false;
@@ -117,12 +115,12 @@ public class AnswerRequestService {
             
             List<User> result = new java.util.ArrayList<>(matchingExperts);
             for (User u : otherUsers) {
-                if (result.size() >= 10) break;
+                if (result.size() >= 4) break;
                 result.add(u);
             }
             
-            if (result.size() > 10) {
-                result = result.subList(0, 10);
+            if (result.size() > 4) {
+                result = result.subList(0, 4);
             }
 
             return result.stream()
@@ -131,15 +129,18 @@ public class AnswerRequestService {
 
         } catch (Exception e) {
             e.printStackTrace();
-            // Emergency fallback: just get any 5 users
-            return userRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 5))
+            // Emergency fallback: just get any 4 users (excluding Cue)
+            return userRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 10))
                     .getContent().stream()
                     .filter(u -> !u.getUserId().equals(userId))
+                    .filter(u -> !"Cue".equalsIgnoreCase(u.getUsername()) && !"Cue".equalsIgnoreCase(u.getFullName()))
+                    .limit(4)
                     .map(userService::convertToUserProfileDto)
                     .collect(Collectors.toList());
         }
     }
     
+    @Transactional(readOnly = true)
     public List<AnswerRequest> getMyPendingRequests(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -151,6 +152,7 @@ public class AnswerRequestService {
     /**
      * Get all user IDs that the current user has already sent requests to for a specific question.
      */
+    @Transactional(readOnly = true)
     public List<Long> getAlreadyRequestedUserIds(Long questionId, Long requesterId) {
         Post question = postRepository.findById(questionId)
                 .orElseThrow(() -> new RuntimeException("Question not found"));

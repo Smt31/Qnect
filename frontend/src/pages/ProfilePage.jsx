@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getAuthToken, userApi } from '../api';
-import { useCurrentUser, useUserProfile, useUserStats, useUserQuestions, useFollowUser, useUnfollowUser, useUserFollowers, useUserFollowing } from '../api/queryHooks';
+import { useCurrentUser, useUserProfile, useUserStats, useFollowUser, useUnfollowUser, useUserFollowers, useUserFollowing } from '../api/queryHooks';
 import Navbar from '../components/Home/Navbar';
 import LeftSidebar from '../components/Home/LeftSidebar';
 import MobileNav from '../components/Home/MobileNav';
@@ -20,7 +20,35 @@ export default function ProfilePage() {
 
   const { data: profileUser, isLoading: profileLoading, isError: profileError } = useUserProfile(profileUserId);
   const { data: stats } = useUserStats(profileUserId);
-  const { data: questions = [] } = useUserQuestions(profileUserId);
+
+  // Post type filter state
+  const [postType, setPostType] = useState('ALL');
+  const [posts, setPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+
+  // Fetch posts when profile or postType changes
+  useEffect(() => {
+    const fetchPosts = async () => {
+      if (!profileUserId) return;
+      setPostsLoading(true);
+      try {
+        let res;
+        if (postType === 'ALL') {
+          res = await userApi.getUserQuestions(profileUserId, 0, 30);
+        } else {
+          res = await userApi.getUserPostsByType(profileUserId, postType, 0, 30);
+        }
+        const data = res?.content || res || [];
+        setPosts(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error('Failed to fetch posts:', e);
+        setPosts([]);
+      } finally {
+        setPostsLoading(false);
+      }
+    };
+    fetchPosts();
+  }, [profileUserId, postType]);
 
   // Check if current user is following the profile user
   const isMe = useMemo(() => me && profileUser && me.userId === profileUser.userId, [me, profileUser]);
@@ -206,12 +234,12 @@ export default function ProfilePage() {
 
 
   if (profileLoading) {
-    return <div className="min-h-screen bg-gray-50 p-6 text-center text-gray-500">Loading profile...</div>;
+    return <div className="min-h-screen bg-[#FFF1F2] p-6 text-center text-gray-500">Loading profile...</div>;
   }
 
   if (profileError || error || !profileUser) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#FFF1F2]">
         <Navbar user={me} />
         <div className="flex justify-center p-10">
           <div className="bg-white p-8 rounded-lg shadow-sm text-center">
@@ -224,14 +252,14 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#FFF1F2]">
       <Navbar user={me} />
 
       <div className="flex">
         <LeftSidebar user={me} onAskQuestion={() => navigate('/home')} />
 
-        <main className="flex-1 md:ml-64 p-6 bg-gray-50 min-h-screen">
-          <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <main className="flex-1 md:ml-64 p-4 md:p-6 bg-[#FFF1F2] min-h-screen">
+          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
 
             {/* Left Column (Profile & Feed) */}
             <div className="lg:col-span-2 space-y-4">
@@ -243,9 +271,9 @@ export default function ProfilePage() {
 
                 {/* Profile Info */}
                 <div className="px-5 pb-4">
-                  <div className="flex flex-col md:flex-row items-start md:items-end -mt-10 gap-4">
+                  <div className="flex flex-col md:flex-row items-start md:items-end -mt-8 gap-3">
                     {/* Avatar */}
-                    <div className="w-20 h-20 rounded-full border-4 border-white bg-white shadow-md overflow-hidden flex-shrink-0">
+                    <div className="w-16 h-16 rounded-full border-4 border-white bg-white shadow-md overflow-hidden flex-shrink-0">
                       {profileUser.avatarUrl ? (
                         <img src={profileUser.avatarUrl} alt={profileUser.fullName} className="w-full h-full object-cover" />
                       ) : (
@@ -273,8 +301,8 @@ export default function ProfilePage() {
                           <>
                             <button
                               className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${isFollowingProfile
-                                ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                                : 'bg-rose-500 hover:bg-rose-600 text-white'
+                                ? 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100'
+                                : 'bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white shadow-sm'
                                 }`}
                               onClick={handleFollowProfile}
                             >
@@ -301,19 +329,19 @@ export default function ProfilePage() {
                   {/* Stats Row */}
                   <div className="flex items-center gap-5 mt-4 text-sm">
                     <div>
-                      <span className="font-semibold text-gray-900">{stats?.questions}</span>
+                      <span className="font-semibold text-gray-900">{stats?.questionsCount ?? 0}</span>
                       <span className="text-gray-500 ml-1">Posts</span>
                     </div>
                     <div className="cursor-pointer hover:text-rose-500 transition-colors" onClick={() => setActiveTab('followers')}>
-                      <span className="font-semibold text-gray-900">{stats?.followers}</span>
+                      <span className="font-semibold text-gray-900">{stats?.followersCount ?? 0}</span>
                       <span className="text-gray-500 ml-1">Followers</span>
                     </div>
                     <div className="cursor-pointer hover:text-rose-500 transition-colors" onClick={() => setActiveTab('following')}>
-                      <span className="font-semibold text-gray-900">{stats?.following}</span>
+                      <span className="font-semibold text-gray-900">{stats?.followingCount ?? 0}</span>
                       <span className="text-gray-500 ml-1">Following</span>
                     </div>
                     <div className="ml-auto">
-                      <span className="font-semibold text-gray-900">{stats?.reputation}</span>
+                      <span className="font-semibold text-gray-900">{stats?.reputation ?? 0}</span>
                       <span className="text-gray-500 ml-1">Rep</span>
                     </div>
                   </div>
@@ -348,11 +376,31 @@ export default function ProfilePage() {
 
                 {activeTab === 'posts' && (
                   <div className="space-y-3">
-                    {questions.length > 0 ? questions.map(q => (
+                    {/* Post Type Tabs - Clean button design */}
+                    <div className="flex gap-2">
+                      {[{ label: 'All', value: 'ALL' }, { label: 'Questions', value: 'QUESTION' }, { label: 'Posts', value: 'POST' }].map(tab => (
+                        <button
+                          key={tab.value}
+                          onClick={() => setPostType(tab.value)}
+                          className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${postType === tab.value
+                            ? 'bg-rose-500 text-white'
+                            : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                            }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {postsLoading ? (
+                      <div className="text-center py-10 text-gray-500 bg-white rounded-xl shadow-sm">
+                        Loading...
+                      </div>
+                    ) : posts.length > 0 ? posts.map(q => (
                       <CompactFeedCard key={q.id} post={q} />
                     )) : (
                       <div className="text-center py-10 text-gray-500 bg-white rounded-xl shadow-sm">
-                        No posts yet.
+                        No {postType === 'ALL' ? 'posts' : postType === 'QUESTION' ? 'questions' : 'posts'} yet.
                       </div>
                     )}
                   </div>

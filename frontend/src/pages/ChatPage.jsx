@@ -150,6 +150,8 @@ const ChatPage = () => {
             receiverId: selectedUser.otherUserId,
             content: text,
             type: type,
+            // For IMAGE type, the 'text' argument contains the URL
+            attachmentUrl: type === 'IMAGE' ? text : null,
             createdAt: new Date().toISOString(),
             pending: true, // Mark as pending for potential UI styling
         };
@@ -162,6 +164,13 @@ const ChatPage = () => {
             content: text,
             type: type
         };
+
+        // If sending image, move URL to attachmentUrl field
+        if (type === 'IMAGE') {
+            payload.attachmentUrl = text;
+            // Optional: set content to "Sent an image" or keep URL as fallback
+            payload.content = "Sent an image";
+        }
 
         try {
             const resp = await chatApi.sendMessageHttp(payload);

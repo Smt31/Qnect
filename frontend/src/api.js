@@ -141,6 +141,27 @@ export const questionApi = {
     params.append('size', size);
     return get(`/api/questions/search?${params.toString()}`, true);
   },
+  uploadImage: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = getAuthToken();
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    // Note: Do NOT set Content-Type to multipart/form-data manually, let browser set boundary
+
+    const res = await fetch(`${API_URL}/api/upload`, {
+      method: "POST",
+      headers: headers,
+      body: formData,
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+    throw new Error("Failed to upload image");
+  },
 };
 
 export const answerApi = {

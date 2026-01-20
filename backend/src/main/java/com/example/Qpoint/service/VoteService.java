@@ -170,12 +170,11 @@ public class VoteService {
             if (voteType == Vote.VoteType.UPVOTE) {
                 post.setUpvotes(post.getUpvotes() + (1 * multiplier));
                 
-                // Add reputation for receiving upvote (+2) when adding upvote
-                if (isAdding) {
-                    User postAuthor = post.getAuthor();
-                    postAuthor.setReputation(postAuthor.getReputation() + 2);
-                    userRepository.save(postAuthor);
-                }
+                // Handle reputation for upvotes: +2 when adding, -2 when removing
+                User postAuthor = post.getAuthor();
+                int reputationChange = 2 * multiplier;
+                postAuthor.setReputation(Math.max(0, postAuthor.getReputation() + reputationChange));
+                userRepository.save(postAuthor);
             } else if (voteType == Vote.VoteType.DOWNVOTE) {
                 post.setDownvotes(post.getDownvotes() + (1 * multiplier));
             }
@@ -196,12 +195,11 @@ public class VoteService {
             if (voteType == Vote.VoteType.UPVOTE) {
                 answer.setUpvotes(answer.getUpvotes() + (1 * multiplier));
                 
-                // Add reputation for receiving upvote (+2) when adding upvote
-                if (isAdding) {
-                    User answerAuthor = answer.getAuthor();
-                    answerAuthor.setReputation(answerAuthor.getReputation() + 2);
-                    userRepository.save(answerAuthor);
-                }
+                // Handle reputation for upvotes: +2 when adding, -2 when removing
+                User answerAuthor = answer.getAuthor();
+                int reputationChange = 2 * multiplier;
+                answerAuthor.setReputation(Math.max(0, answerAuthor.getReputation() + reputationChange));
+                userRepository.save(answerAuthor);
             } else if (voteType == Vote.VoteType.DOWNVOTE) {
                 answer.setDownvotes(answer.getDownvotes() + (1 * multiplier));
             }
@@ -211,12 +209,11 @@ public class VoteService {
             if (voteType == Vote.VoteType.UPVOTE) {
                 comment.setUpvotes(comment.getUpvotes() + (1 * multiplier));
                 
-                // Add reputation for receiving upvote (+2) when adding upvote
-                if (isAdding) {
-                    User commentAuthor = comment.getAuthor();
-                    commentAuthor.setReputation(commentAuthor.getReputation() + 2);
-                    userRepository.save(commentAuthor);
-                }
+                // Handle reputation for upvotes: +2 when adding, -2 when removing
+                User commentAuthor = comment.getAuthor();
+                int reputationChange = 2 * multiplier;
+                commentAuthor.setReputation(Math.max(0, commentAuthor.getReputation() + reputationChange));
+                userRepository.save(commentAuthor);
             } else if (voteType == Vote.VoteType.DOWNVOTE) {
                 comment.setDownvotes(comment.getDownvotes() + (1 * multiplier));
             }

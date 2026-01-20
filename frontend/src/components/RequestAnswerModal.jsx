@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { requestApi } from '../api';
 
 export default function RequestAnswerModal({ isOpen, onClose, questionId, currentUserId }) {
@@ -9,12 +9,27 @@ export default function RequestAnswerModal({ isOpen, onClose, questionId, curren
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+    const debounceTimeout = useRef(null);
 
     useEffect(() => {
         if (isOpen && questionId) {
             loadSuggestions();
         }
+        // Clear search when modal closes
+        if (!isOpen) {
+            setSearchQuery('');
+            setSearchResults([]);
+        }
     }, [isOpen, questionId]);
+
+    // Cleanup debounce timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceTimeout.current) {
+                clearTimeout(debounceTimeout.current);
+            }
+        };
+    }, []);
 
     // Filter suggestions based on search query
     const filteredSuggestions = searchQuery
@@ -49,25 +64,38 @@ export default function RequestAnswerModal({ isOpen, onClose, questionId, curren
         }
     };
 
-    const handleSearch = async (query) => {
+    const handleSearchInputChange = (e) => {
+        const query = e.target.value;
+        setSearchQuery(query);
+
+        // Clear previous timeout
+        if (debounceTimeout.current) {
+            clearTimeout(debounceTimeout.current);
+        }
+
+        // If query is empty, reset immediately
         if (!query.trim()) {
-            setSearchQuery('');
             setSearchResults([]);
+            setIsSearching(false);
             return;
         }
 
-        try {
-            setIsSearching(true);
-            setError('');
-            const data = await requestApi.searchExperts(query.trim());
-            setSearchResults(data || []);
-            setSearchQuery(query.trim());
-        } catch (err) {
-            setError('Failed to search experts');
-            setSearchResults([]);
-        } finally {
-            setIsSearching(false);
-        }
+        // Show searching state
+        setIsSearching(true);
+
+        // Debounce the API call by 500ms
+        debounceTimeout.current = setTimeout(async () => {
+            try {
+                setError('');
+                const data = await requestApi.searchExperts(query.trim());
+                setSearchResults(data || []);
+            } catch (err) {
+                setError('Failed to search experts');
+                setSearchResults([]);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 500);
     };
 
     const handleRequest = async (userId) => {
@@ -98,7 +126,7 @@ export default function RequestAnswerModal({ isOpen, onClose, questionId, curren
                             type="text"
                             placeholder="Search experts by name, username, or tags..."
                             value={searchQuery}
-                            onChange={(e) => handleSearch(e.target.value)}
+                            onChange={handleSearchInputChange}
                             className="w-full px-4 py-2 pl-10 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400 transition-all"
                         />
                         <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

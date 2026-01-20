@@ -214,6 +214,7 @@ public class PostService {
         postRepository.delete(post);
     }
 
+    @Transactional(readOnly = true)
     public Page<FeedPostDto> getUserFeed(List<Long> followingIds, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         
@@ -227,6 +228,7 @@ public class PostService {
 
     }
 
+    @Transactional(readOnly = true)
     public Page<FeedPostDto> getFeedForUser(Long userId, FeedTab tab, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
 
@@ -245,6 +247,7 @@ public class PostService {
         return convertToFeedPostDtoBulk(posts, userId);
     }
 
+    @Transactional(readOnly = true)
     public Page<FeedPostDto> getFeedForUser(Long userId, int page, int size) {
         return getFeedForUser(userId, FeedTab.FOR_YOU, page, size);
     }
@@ -252,6 +255,7 @@ public class PostService {
     /**
      * Get questions posted by a specific user.
      */
+    @Transactional(readOnly = true)
     public Page<FeedPostDto> getUserQuestions(Long userId, int page, int size) {
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -263,6 +267,7 @@ public class PostService {
     /**
      * Get posts by a specific user filtered by type (QUESTION or POST).
      */
+    @Transactional(readOnly = true)
     public Page<FeedPostDto> getUserPostsByType(Long userId, com.example.Qpoint.models.PostType type, int page, int size) {
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -271,12 +276,14 @@ public class PostService {
                 .map(post -> convertToFeedPostDto(post, null));
     }
 
+    @Transactional(readOnly = true)
     public Page<FeedPostDto> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Post> posts = postRepository.findAll(pageable);
         return posts.map(post -> convertToFeedPostDto(post, null));
     }
 
+    @Transactional(readOnly = true)
     public Page<FeedPostDto> searchPosts(String query, String tag, Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Post> posts;
@@ -296,6 +303,7 @@ public class PostService {
         return posts.map(post -> convertToFeedPostDto(post, userId));
     }
 
+    @Transactional(readOnly = true)
     @Cacheable(value = "posts", key = "#postId")
     public FeedPostDto getPostById(Long postId) {
         Post post = postRepository.findById(postId)
@@ -338,17 +346,21 @@ public class PostService {
         return convertToFeedPostDto(post, userId);
     }
 
+    @Transactional(readOnly = true)
     public Page<FeedPostDto> getTrendingPosts(int page, int size) {
         return getTrendingPosts(page, size, null);
     }
 
+    @Transactional(readOnly = true)
     public Page<FeedPostDto> getTrendingPosts(int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Post> posts = postRepository.findTrendingPosts(pageable);
-        return posts.map(post -> convertToFeedPostDto(post, userId));
+        // Use bulk conversion to avoid N+1 queries
+        return convertToFeedPostDtoBulk(posts, userId);
     }
 
     // Exposed for building nested DTOs (e.g. bookmarks) without incrementing views.
+    @Transactional(readOnly = true)
     public FeedPostDto convertToFeedPostDtoForBookmark(Post post) {
         return convertToFeedPostDto(post, null);
     }
@@ -359,11 +371,13 @@ public class PostService {
         dto.setTitle(post.getTitle());
         dto.setContent(post.getContent());
         dto.setImageUrl(post.getImageUrl());
-        dto.setTags(post.getTags());
+        // Create defensive copy of tags to avoid LazyInitializationException after transaction closes
+    dto.setTags(post.getTags() != null ? new java.util.ArrayList<>(post.getTags()) : null);
         dto.setLikesCount(post.getLikesCount());
         dto.setUpvotes(post.getUpvotes());
         dto.setDownvotes(post.getDownvotes());
-        dto.setAnswerCount(post.getAnswerCount());
+        // Use dynamic count from database instead of stale stored counter
+        dto.setAnswerCount((int) answerRepository.countByPost(post));
         dto.setCommentsCount(post.getCommentsCount());
         dto.setViewsCount(post.getViewsCount());
         dto.setCreatedAt(post.getCreatedAt());
@@ -467,7 +481,8 @@ public class PostService {
             dto.setLikesCount(post.getLikesCount());
             dto.setUpvotes(post.getUpvotes());
             dto.setDownvotes(post.getDownvotes());
-            dto.setAnswerCount(post.getAnswerCount());
+            // Use dynamic count from database instead of stale stored counter
+            dto.setAnswerCount((int) answerRepository.countByPost(post));
             dto.setCommentsCount(post.getCommentsCount());
             dto.setViewsCount(post.getViewsCount());
             dto.setCreatedAt(post.getCreatedAt());
@@ -534,11 +549,12 @@ public class PostService {
         dto.setTitle(post.getTitle());
         dto.setContent(post.getContent());
         dto.setImageUrl(post.getImageUrl());
-        dto.setTags(post.getTags() != null ? post.getTags() : java.util.Collections.emptyList());
+        dto.setTags(post.getTags() != null ? new java.util.ArrayList<>(post.getTags()) : java.util.Collections.emptyList());
         dto.setLikesCount(post.getLikesCount());
         dto.setUpvotes(post.getUpvotes());
         dto.setDownvotes(post.getDownvotes());
-        dto.setAnswerCount(post.getAnswerCount());
+        // Use dynamic count from database instead of stale stored counter
+        dto.setAnswerCount((int) answerRepository.countByPost(post));
         dto.setCommentsCount(post.getCommentsCount());
         dto.setViewsCount(post.getViewsCount());
         dto.setCreatedAt(post.getCreatedAt());
