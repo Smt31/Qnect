@@ -19,6 +19,8 @@ public class PostCommentDto {
     @Data
     public static class AuthorDto {
         private Long id;
+        private String userId;
+        private String username;
         private String fullName;
         private String avatarUrl;
     }

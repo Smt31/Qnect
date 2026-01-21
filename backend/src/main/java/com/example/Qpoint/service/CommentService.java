@@ -157,6 +157,8 @@ public class CommentService {
 
         PostCommentDto.AuthorDto authorDto = new PostCommentDto.AuthorDto();
         authorDto.setId(comment.getAuthor().getUserId());
+        authorDto.setUserId(String.valueOf(comment.getAuthor().getUserId()));
+        authorDto.setUsername(comment.getAuthor().getUsername());
         authorDto.setFullName(comment.getAuthor().getFullName());
         authorDto.setAvatarUrl(comment.getAuthor().getAvatarUrl());
         dto.setAuthor(authorDto);

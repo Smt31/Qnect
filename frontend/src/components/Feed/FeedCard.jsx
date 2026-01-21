@@ -24,7 +24,7 @@ export default function FeedCard({ post, currentUserId, onVote, onDelete, onShar
                             className="text-sm font-semibold text-gray-900 hover:text-red-500 transition-colors cursor-pointer"
                             onClick={(e) => { e.stopPropagation(); navigate(`/profile/${post.author?.userId}`); }}
                         >
-                            {post.author?.fullName || post.author?.username || 'User'}
+                            {post.author?.username || post.author?.userId || 'user'}
                         </span>
                         <span className="text-xs text-gray-500">{new Date(post.createdAt).toLocaleDateString()}</span>
                     </div>

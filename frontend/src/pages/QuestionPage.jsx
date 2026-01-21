@@ -213,10 +213,10 @@ export default function QuestionPage() {
                       {question.author?.avatarUrl ? (
                         <img src={question.author.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
                       ) : (
-                        question.author?.fullName?.[0] || 'U'
+                        question.author?.username?.[0]?.toUpperCase() || question.author?.userId?.[0]?.toUpperCase() || 'U'
                       )}
                     </div>
-                    <span className="font-medium text-gray-900">{question.author?.fullName || 'User'}</span>
+                    <span className="font-medium text-gray-900">{question.author?.username || question.author?.userId || 'user'}</span>
                   </div>
                   <span>•</span>
                   <span>{question.createdAt ? new Date(question.createdAt).toLocaleDateString() : ''}</span>

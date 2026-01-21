@@ -385,6 +385,8 @@ public class PostService {
 
         FeedPostDto.AuthorDto authorDto = new FeedPostDto.AuthorDto();
         authorDto.setId(post.getAuthor().getUserId());
+        authorDto.setUserId(String.valueOf(post.getAuthor().getUserId()));
+        authorDto.setUsername(post.getAuthor().getUsername());
         authorDto.setFullName(post.getAuthor().getFullName());
         authorDto.setAvatarUrl(post.getAuthor().getAvatarUrl());
         dto.setAuthor(authorDto);
@@ -494,6 +496,8 @@ public class PostService {
             // Author (already loaded via JOIN FETCH, no query)
             FeedPostDto.AuthorDto authorDto = new FeedPostDto.AuthorDto();
             authorDto.setId(post.getAuthor().getUserId());
+            authorDto.setUserId(String.valueOf(post.getAuthor().getUserId()));
+            authorDto.setUsername(post.getAuthor().getUsername());
             authorDto.setFullName(post.getAuthor().getFullName());
             authorDto.setAvatarUrl(post.getAuthor().getAvatarUrl());
             dto.setAuthor(authorDto);
@@ -562,6 +566,8 @@ public class PostService {
 
         FeedPostDto.AuthorDto authorDto = new FeedPostDto.AuthorDto();
         authorDto.setId(post.getAuthor().getUserId());
+        authorDto.setUserId(String.valueOf(post.getAuthor().getUserId()));
+        authorDto.setUsername(post.getAuthor().getUsername());
         authorDto.setFullName(post.getAuthor().getFullName());
         authorDto.setAvatarUrl(post.getAuthor().getAvatarUrl());
         dto.setAuthor(authorDto);
