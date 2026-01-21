@@ -8,6 +8,7 @@ export default function RefineWithCue({
     description,
     onUseTitle,
     onUseDescription,
+    onUseTopics,
     anchorRef
 }) {
     const [loading, setLoading] = useState(false);
@@ -120,7 +121,6 @@ export default function RefineWithCue({
                                     <button
                                         onClick={() => {
                                             onUseTitle(result.improvedTitle);
-                                            onClose();
                                         }}
                                         className="px-3 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
                                     >
@@ -137,7 +137,6 @@ export default function RefineWithCue({
                                     <button
                                         onClick={() => {
                                             onUseDescription(result.improvedDescription);
-                                            onClose();
                                         }}
                                         className="px-3 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
                                     >
@@ -146,6 +145,24 @@ export default function RefineWithCue({
                                 </div>
                                 <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{result.improvedDescription}</p>
                             </div>
+
+                            {/* Suggested Topics */}
+                            {result.suggestedTopics && result.suggestedTopics.length > 0 && onUseTopics && (
+                                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Suggested Topics</span>
+                                        <button
+                                            onClick={() => {
+                                                onUseTopics(result.suggestedTopics);
+                                            }}
+                                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
+                                        >
+                                            Use these topics
+                                        </button>
+                                    </div>
+                                    <p className="text-gray-900 font-medium leading-relaxed">{result.suggestedTopics.join(', ')}</p>
+                                </div>
+                            )}
 
                             {/* What Changed */}
                             <div className="bg-violet-50 rounded-xl p-4 border border-violet-100">

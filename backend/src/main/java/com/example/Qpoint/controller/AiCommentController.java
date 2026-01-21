@@ -117,6 +117,71 @@ public class AiCommentController {
     }
 
     /**
+     * Regenerates the AI answer for a post.
+     * Deletes the existing AI answer and all its comments, then generates a new one.
+     * Only the post owner can regenerate an AI answer.
+     */
+    @PostMapping("/regenerate-answer/{postId}")
+    public ResponseEntity<?> regenerateAiAnswer(@PathVariable Long postId, Authentication authentication) {
+        // Validate authentication
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof CustomUserDetails)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid authentication"));
+        }
+
+        Long userId = ((CustomUserDetails) principal).getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "User ID not found"));
+        }
+
+        // Check if Gemini is configured
+        if (!geminiService.isConfigured()) {
+            return ResponseEntity.status(503).body(Map.of("error", "AI service is not configured. Please contact administrator."));
+        }
+
+        // Fetch the post
+        Post post = postRepository.findById(postId).orElse(null);
+        if (post == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Post not found"));
+        }
+
+        // Check if user is the post owner
+        if (!post.getAuthor().getUserId().equals(userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Only the post owner can regenerate an AI answer"));
+        }
+
+        // Check if AI answer exists
+        if (!commentService.hasAiComment(postId)) {
+            return ResponseEntity.status(400).body(Map.of("error", "No AI answer exists to regenerate. Generate one first."));
+        }
+
+        try {
+            // Delete the existing AI comment and all its replies
+            commentService.deleteAiComment(postId);
+
+            // Generate new AI answer
+            String aiAnswer = geminiService.generateAnswer(post.getTitle(), post.getContent());
+
+            // Get or create AI user
+            User aiUser = getOrCreateAiUser();
+
+            // Create new AI comment
+            Comment aiComment = commentService.createAiComment(postId, aiUser, aiAnswer);
+
+            // Convert to DTO and return
+            PostCommentDto dto = commentService.convertToPostCommentDto(aiComment);
+            return ResponseEntity.ok(dto);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to regenerate AI answer: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Gets or creates the system AI user account.
      */
     private User getOrCreateAiUser() {

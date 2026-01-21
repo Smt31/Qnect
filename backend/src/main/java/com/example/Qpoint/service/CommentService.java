@@ -211,4 +211,41 @@ public class CommentService {
                 .orElseThrow(() -> new RuntimeException("Post not found"));
         return commentRepository.existsByPostAndIsAiGeneratedTrue(post);
     }
+
+    /**
+     * Deletes the AI-generated comment for a post, including all its nested replies.
+     * Also updates the post's comment count.
+     */
+    @Transactional
+    public void deleteAiComment(Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        
+        Comment aiComment = commentRepository.findByPostAndIsAiGeneratedTrue(post)
+                .orElseThrow(() -> new RuntimeException("AI comment not found"));
+        
+        // Count total comments to delete (AI comment + all its replies)
+        int totalCommentsToDelete = 1 + countRepliesRecursively(aiComment);
+        
+        // Update post comment count
+        post.setCommentsCount(Math.max(0, post.getCommentsCount() - totalCommentsToDelete));
+        postRepository.save(post);
+        
+        // Delete the AI comment (cascade will delete all replies due to orphanRemoval)
+        commentRepository.delete(aiComment);
+    }
+
+    /**
+     * Recursively counts all nested replies of a comment.
+     */
+    private int countRepliesRecursively(Comment comment) {
+        if (comment.getReplies() == null || comment.getReplies().isEmpty()) {
+            return 0;
+        }
+        int count = comment.getReplies().size();
+        for (Comment reply : comment.getReplies()) {
+            count += countRepliesRecursively(reply);
+        }
+        return count;
+    }
 }

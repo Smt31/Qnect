@@ -94,7 +94,7 @@ public class GeminiService {
         // Add generation config
         Map<String, Object> generationConfig = new HashMap<>();
         generationConfig.put("temperature", 0.7);
-        generationConfig.put("maxOutputTokens", 1024);
+        generationConfig.put("maxOutputTokens", 8192);
         requestBody.put("generationConfig", generationConfig);
 
         HttpHeaders headers = new HttpHeaders();
@@ -179,6 +179,7 @@ public class GeminiService {
         sb.append("Respond in EXACTLY this format (use these exact labels):\n");
         sb.append("IMPROVED_TITLE: [your improved title here]\n");
         sb.append("IMPROVED_DESCRIPTION: [your improved description here]\n");
+        sb.append("SUGGESTED_TOPICS: [topic1, topic2, topic3]\n");
         sb.append("CHANGES:\n");
         sb.append("- [change 1]\n");
         sb.append("- [change 2]\n");
@@ -188,6 +189,7 @@ public class GeminiService {
         sb.append("- Preserve the user's intent and voice\n");
         sb.append("- Fix grammar, clarity, and make it more engaging\n");
         sb.append("- If title is already good, keep it similar\n");
+        sb.append("- Suggest 3-5 relevant topics/tags that categorize this post (e.g., 'javascript', 'react', 'web-development')\n");
         sb.append("- List 2-4 brief changes you made\n");
         return sb.toString();
     }
@@ -198,6 +200,7 @@ public class GeminiService {
         // Parse improved title
         int titleStart = response.indexOf("IMPROVED_TITLE:");
         int descStart = response.indexOf("IMPROVED_DESCRIPTION:");
+        int topicsStart = response.indexOf("SUGGESTED_TOPICS:");
         int changesStart = response.indexOf("CHANGES:");
         
         if (titleStart != -1 && descStart != -1) {
@@ -207,7 +210,11 @@ public class GeminiService {
             result.setImprovedTitle(originalTitle);
         }
         
-        if (descStart != -1 && changesStart != -1) {
+        // Parse improved description
+        if (descStart != -1 && topicsStart != -1) {
+            String improvedDesc = response.substring(descStart + 21, topicsStart).trim();
+            result.setImprovedDescription(improvedDesc);
+        } else if (descStart != -1 && changesStart != -1) {
             String improvedDesc = response.substring(descStart + 21, changesStart).trim();
             result.setImprovedDescription(improvedDesc);
         } else if (descStart != -1) {
@@ -216,6 +223,23 @@ public class GeminiService {
         } else {
             result.setImprovedDescription(originalDescription);
         }
+        
+        // Parse suggested topics
+        List<String> suggestedTopics = new ArrayList<>();
+        if (topicsStart != -1) {
+            int topicsEnd = changesStart != -1 ? changesStart : response.length();
+            String topicsSection = response.substring(topicsStart + 17, topicsEnd).trim();
+            // Remove brackets if present and split by comma
+            topicsSection = topicsSection.replaceAll("[\\[\\]]", "");
+            String[] topics = topicsSection.split(",");
+            for (String topic : topics) {
+                topic = topic.trim();
+                if (!topic.isEmpty() && suggestedTopics.size() < 5) {
+                    suggestedTopics.add(topic);
+                }
+            }
+        }
+        result.setSuggestedTopics(suggestedTopics);
         
         // Parse changes
         List<String> changes = new ArrayList<>();
@@ -249,12 +273,15 @@ public class GeminiService {
     public static class RefineResult {
         private String improvedTitle;
         private String improvedDescription;
+        private List<String> suggestedTopics;
         private List<String> changes;
 
         public String getImprovedTitle() { return improvedTitle; }
         public void setImprovedTitle(String improvedTitle) { this.improvedTitle = improvedTitle; }
         public String getImprovedDescription() { return improvedDescription; }
         public void setImprovedDescription(String improvedDescription) { this.improvedDescription = improvedDescription; }
+        public List<String> getSuggestedTopics() { return suggestedTopics; }
+        public void setSuggestedTopics(List<String> suggestedTopics) { this.suggestedTopics = suggestedTopics; }
         public List<String> getChanges() { return changes; }
         public void setChanges(List<String> changes) { this.changes = changes; }
     }

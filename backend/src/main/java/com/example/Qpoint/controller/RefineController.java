@@ -37,6 +37,7 @@ public class RefineController {
             return ResponseEntity.ok(Map.of(
                 "improvedTitle", result.getImprovedTitle() != null ? result.getImprovedTitle() : "",
                 "improvedDescription", result.getImprovedDescription() != null ? result.getImprovedDescription() : "",
+                "suggestedTopics", result.getSuggestedTopics() != null ? result.getSuggestedTopics() : List.of(),
                 "changes", result.getChanges() != null ? result.getChanges() : List.of()
             ));
         } catch (Exception e) {

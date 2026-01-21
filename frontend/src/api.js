@@ -243,6 +243,7 @@ export const chatApi = {
 
 export const aiApi = {
   generateAnswer: (postId) => post(`/api/ai/generate-answer/${postId}`, {}, true),
+  regenerateAnswer: (postId) => post(`/api/ai/regenerate-answer/${postId}`, {}, true),
   hasAnswer: (postId) => get(`/api/ai/has-answer/${postId}`, true),
   refinePost: (title, description) => post('/api/ai/refine', { title, description }, true),
 };

@@ -628,6 +628,7 @@ export default function HomePage() {
                 description={questionContent}
                 onUseTitle={(newTitle) => setQuestionTitle(newTitle)}
                 onUseDescription={(newDesc) => setQuestionContent(newDesc)}
+                onUseTopics={(topics) => setTags(topics.join(', '))}
               />
             </div>
           </div>

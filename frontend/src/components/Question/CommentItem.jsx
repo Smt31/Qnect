@@ -28,6 +28,7 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
     const [isReplying, setIsReplying] = useState(false);
     const [replyContent, setReplyContent] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [isRegenerating, setIsRegenerating] = useState(false);
 
     // Collapsible replies state (Instagram-style)
     const [showReplies, setShowReplies] = useState(false);
@@ -261,7 +262,7 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
         : 'ml-8 mt-3 pl-3 border-l-2 border-gray-100';
 
     const aiClasses = isAiComment && depth === 0
-        ? 'relative bg-gradient-to-r from-purple-50 via-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-transparent bg-clip-padding shadow-sm before:absolute before:inset-0 before:-z-10 before:rounded-xl before:p-[2px] before:bg-gradient-to-r before:from-purple-400 before:via-blue-400 before:to-indigo-400'
+        ? `relative bg-gradient-to-r from-purple-50 via-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-transparent bg-clip-padding shadow-sm before:absolute before:inset-0 before:-z-10 before:rounded-xl before:p-[2px] before:bg-gradient-to-r before:from-purple-400 before:via-blue-400 before:to-indigo-400 ${isRegenerating ? 'animate-pulse' : ''}`
         : '';
 
     return (
@@ -352,6 +353,49 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
                         >
                             Reply
                         </button>
+
+                        {/* Regenerate button for AI comments (only post owner) */}
+                        {isAiComment && me?.userId === postAuthorId && (
+                            <button
+                                onClick={async () => {
+                                    if (!window.confirm('Regenerate AI answer? This will delete the current answer and all its comments, then generate a new one.')) return;
+                                    setIsRegenerating(true);
+                                    try {
+                                        const { aiApi } = await import('../../api');
+                                        await aiApi.regenerateAnswer(postId);
+                                        refreshComments();
+                                    } catch (err) {
+                                        console.error('Failed to regenerate:', err);
+                                        alert(err.message || 'Failed to regenerate AI answer');
+                                    } finally {
+                                        setIsRegenerating(false);
+                                    }
+                                }}
+                                disabled={isRegenerating}
+                                className={`font-medium transition-all flex items-center gap-1 ${isRegenerating
+                                        ? 'text-purple-400 cursor-wait'
+                                        : 'text-purple-600 hover:text-purple-700'
+                                    }`}
+                                title={isRegenerating ? "Regenerating..." : "Regenerate AI answer"}
+                            >
+                                {isRegenerating ? (
+                                    <>
+                                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span className="animate-pulse">Regenerating...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                        Regenerate
+                                    </>
+                                )}
+                            </button>
+                        )}
 
                         {(me?.userId === (comment.author?.id || comment.author?.userId) || me?.userId === postAuthorId) && (
                             <button
