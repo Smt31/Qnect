@@ -291,7 +291,7 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
                     </div>
                 </Link>
 
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                         <Link to={`/profile/${comment.author?.userId}`} className="font-semibold text-gray-900 hover:text-red-500">
                             {comment.author?.fullName || 'User'}
@@ -325,7 +325,7 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
                     <div className="break-words mb-2 leading-relaxed">
                         {isAiComment ? (
                             <>
-                                <div className={`overflow-hidden transition-all duration-300 ${!isExpanded && comment.content.length > 500 ? 'max-h-[300px]' : 'max-h-none'
+                                <div className={`overflow-x-auto transition-all duration-300 ${!isExpanded && comment.content.length > 500 ? 'max-h-[300px] overflow-y-hidden' : 'max-h-none'
                                     }`}>
                                     <MarkdownRenderer content={comment.content} />
                                 </div>

@@ -3,6 +3,8 @@
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   line-height: 1.6;
   color: rgba(0, 0, 0, 0.9) !important;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* Paragraph spacing */
@@ -50,6 +52,9 @@
 .markdown-code-block-wrapper {
   position: relative;
   margin: 1em 0;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
 }
 
 .code-copy-button {
@@ -85,16 +90,37 @@
   border-radius: 6px;
   padding: 1em;
   overflow-x: auto;
+  overflow-y: hidden;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.9em;
   line-height: 1.5;
   margin: 0;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
 }
 
 .markdown-code-block code {
   background: transparent;
   padding: 0;
   color: #c9d1d9;
+  white-space: pre;
+  display: block;
+}
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+  .markdown-code-block {
+    font-size: 0.85em;
+    padding: 0.75em;
+  }
+
+  .code-copy-button {
+    opacity: 1;
+    font-size: 0.85em;
+    padding: 0.4em;
+  }
 }
 
 /* Headings */

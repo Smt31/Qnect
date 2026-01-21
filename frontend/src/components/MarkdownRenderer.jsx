@@ -16,6 +16,20 @@ import './MarkdownRenderer.css';
 const MarkdownRenderer = ({ content, className = '' }) => {
     const [copiedCode, setCopiedCode] = useState(null);
 
+    // Helper function to extract text from React children
+    const getTextContent = (children) => {
+        if (typeof children === 'string') {
+            return children;
+        }
+        if (Array.isArray(children)) {
+            return children.map(getTextContent).join('');
+        }
+        if (children?.props?.children) {
+            return getTextContent(children.props.children);
+        }
+        return '';
+    };
+
     const handleCopyCode = async (code, index) => {
         try {
             await navigator.clipboard.writeText(code);
@@ -46,8 +60,8 @@ const MarkdownRenderer = ({ content, className = '' }) => {
                             );
                         }
 
-                        // For code blocks, extract the code text
-                        const codeContent = String(children).replace(/\n$/, '');
+                        // For code blocks, extract the code text properly
+                        const codeContent = getTextContent(children).replace(/\n$/, '');
 
                         // If it's a very short code block (likely meant to be inline), render it as inline
                         const lines = codeContent.split('\n');
