@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { voteApi, commentApi, userApi } from '../../api';
+import MarkdownRenderer from '../MarkdownRenderer';
 
 // Helper to flatten nested replies into a single list
 const flattenReplies = (replies) => {
@@ -32,6 +33,9 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
 
     // Collapsible replies state (Instagram-style)
     const [showReplies, setShowReplies] = useState(false);
+
+    // Read More/Show Less state for long AI responses
+    const [isExpanded, setIsExpanded] = useState(false);
 
     // @mention autocomplete
     const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -318,8 +322,41 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
                         </span>
                     </div>
 
-                    <div className="text-gray-800 break-words mb-2 leading-relaxed">
-                        {renderContent(comment.content)}
+                    <div className="break-words mb-2 leading-relaxed">
+                        {isAiComment ? (
+                            <>
+                                <div className={`overflow-hidden transition-all duration-300 ${!isExpanded && comment.content.length > 500 ? 'max-h-[300px]' : 'max-h-none'
+                                    }`}>
+                                    <MarkdownRenderer content={comment.content} />
+                                </div>
+                                {comment.content.length > 500 && (
+                                    <button
+                                        onClick={() => setIsExpanded(!isExpanded)}
+                                        className="text-purple-600 hover:text-purple-700 font-medium text-sm mt-2 flex items-center gap-1 transition-colors"
+                                    >
+                                        {isExpanded ? (
+                                            <>
+                                                <span>Show less</span>
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
+                                                </svg>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>Read more</span>
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </>
+                        ) : (
+                            <div className="text-gray-800">
+                                {renderContent(comment.content)}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -373,8 +410,8 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
                                 }}
                                 disabled={isRegenerating}
                                 className={`font-medium transition-all flex items-center gap-1 ${isRegenerating
-                                        ? 'text-purple-400 cursor-wait'
-                                        : 'text-purple-600 hover:text-purple-700'
+                                    ? 'text-purple-400 cursor-wait'
+                                    : 'text-purple-600 hover:text-purple-700'
                                     }`}
                                 title={isRegenerating ? "Regenerating..." : "Regenerate AI answer"}
                             >
