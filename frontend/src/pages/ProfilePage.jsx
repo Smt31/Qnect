@@ -7,6 +7,7 @@ import Navbar from '../components/Home/Navbar';
 import LeftSidebar from '../components/Home/LeftSidebar';
 import MobileNav from '../components/Home/MobileNav';
 import CompactFeedCard from '../components/Feed/CompactFeedCard';
+import Skeleton from '../components/common/Skeleton';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -21,10 +22,19 @@ export default function ProfilePage() {
   const { data: profileUser, isLoading: profileLoading, isError: profileError } = useUserProfile(profileUserId);
   const { data: stats } = useUserStats(profileUserId);
 
-  // Post type filter state
   const [postType, setPostType] = useState('ALL');
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(false);
+
+  // Reset state when profile changes to prevent stale data
+  useEffect(() => {
+    setPosts([]);
+    setFollowers([]);
+    setFollowing([]);
+    setPendingRequests([]);
+    setFollowedUsersMap({});
+    setActiveTab('overview');
+  }, [profileUserId]);
 
   // Fetch posts when profile or postType changes
   useEffect(() => {
@@ -65,6 +75,8 @@ export default function ProfilePage() {
   // State for tabs that are loaded on demand
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
+  const [followersLoading, setFollowersLoading] = useState(false);
+  const [followingLoading, setFollowingLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
 
   // Topics Edit State
@@ -102,14 +114,36 @@ export default function ProfilePage() {
     if (!profileUser) return;
 
     if (activeTab === 'followers' && followers.length === 0) {
+      setFollowersLoading(true);
       userApi.getUserFollowers(profileUser.userId)
-        .then(res => setFollowers(res || []))
-        .catch(console.error);
+        .then(res => {
+          const list = res || [];
+          setFollowers(list);
+          // Initialize local follow map from backend data
+          const map = {};
+          list.forEach(u => {
+            if (u.isFollowing) map[u.userId] = true;
+          });
+          setFollowedUsersMap(prev => ({ ...prev, ...map }));
+        })
+        .catch(console.error)
+        .finally(() => setFollowersLoading(false));
     }
     if (activeTab === 'following' && following.length === 0) {
+      setFollowingLoading(true);
       userApi.getUserFollowing(profileUser.userId)
-        .then(res => setFollowing(res || []))
-        .catch(console.error);
+        .then(res => {
+          const list = res || [];
+          setFollowing(list);
+          // Initialize local follow map from backend data
+          const map = {};
+          list.forEach(u => {
+            if (u.isFollowing) map[u.userId] = true;
+          });
+          setFollowedUsersMap(prev => ({ ...prev, ...map }));
+        })
+        .catch(console.error)
+        .finally(() => setFollowingLoading(false));
     }
     // Fetch pending requests only if it is ME and tab is 'requests'
     if (activeTab === 'requests' && isMe && pendingRequests.length === 0) {
@@ -198,18 +232,28 @@ export default function ProfilePage() {
   const [followedUsersMap, setFollowedUsersMap] = useState({});
 
   const toggleFollowMap = async (targetId) => {
+    const isFollowing = followedUsersMap[targetId];
+
+    // Optimistic UI update locally
+    setFollowedUsersMap(prev => ({
+      ...prev,
+      [targetId]: !isFollowing
+    }));
+
     try {
-      const isFollowing = followedUsersMap[targetId];
       if (isFollowing) {
-        await userApi.unfollowUser(targetId);
+        unfollowMutation.mutate(targetId);
       } else {
-        await userApi.followUser(targetId);
+        followMutation.mutate(targetId);
       }
+    } catch (e) {
+      console.error(e);
+      // Revert on error
       setFollowedUsersMap(prev => ({
         ...prev,
-        [targetId]: !isFollowing
+        [targetId]: isFollowing
       }));
-    } catch (e) { console.error(e); }
+    }
   };
 
   // When loading lists, we should ideally know who we follow.
@@ -220,21 +264,40 @@ export default function ProfilePage() {
   // Improvements: The backend DTO should return `followedByCurrentUser`.
   // For now, we will handle it gracefully: Button says "Follow" initially? Or check `following` list?
 
-  // Hack: If we load "Following" list for "Me", initialize map to true.
-  useEffect(() => {
-    if (activeTab === 'following' && profileUser?.userId === me?.userId && following.length > 0) {
-      const map = {};
-      following.forEach(u => map[u.userId] = true);
-      setFollowedUsersMap(prev => ({ ...prev, ...map }));
-    }
-  }, [activeTab, following, profileUser, me]);
+  // No longer need the hack to initialize map based on "Me" profile
+  // useEffect(() => {
+  //   if (activeTab === 'following' && profileUser?.userId === me?.userId && following.length > 0) {
+  //     const map = {};
+  //     following.forEach(u => map[u.userId] = true);
+  //     setFollowedUsersMap(prev => ({ ...prev, ...map }));
+  //   }
+  // }, [activeTab, following, profileUser, me]);
 
 
 
 
 
   if (profileLoading) {
-    return <div className="min-h-screen bg-[#FFF1F2] p-6 text-center text-gray-500">Loading profile...</div>;
+    return (
+      <div className="min-h-screen bg-[#FFF1F2]">
+        <Navbar user={me} />
+        <div className="flex">
+          <LeftSidebar user={me} onAskQuestion={() => navigate('/home')} />
+          <main className="flex-1 md:ml-64 p-4 md:p-6 bg-[#FFF1F2] min-h-screen">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <Skeleton height="200px" className="w-full rounded-xl" variant="rect" />
+              <div className="flex gap-4">
+                <Skeleton width="100px" height="100px" className="rounded-full -mt-12 ml-6 border-4 border-white" variant="circle" />
+                <div className="space-y-2 mt-2">
+                  <Skeleton width="200px" height="24px" />
+                  <Skeleton width="100px" height="16px" />
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
   }
 
   if (profileError || error || !profileUser) {
@@ -408,7 +471,22 @@ export default function ProfilePage() {
 
                 {(activeTab === 'followers' || activeTab === 'following') && (
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    {(activeTab === 'followers' ? followers : following).length > 0 ? (
+                    {(activeTab === 'followers' ? followersLoading : followingLoading) ? (
+                      <div className="p-4 space-y-4">
+                        {[1, 2, 3, 4, 5].map(i => (
+                          <div key={i} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Skeleton width="40px" height="40px" variant="circle" />
+                              <div className="space-y-1">
+                                <Skeleton width="120px" height="16px" />
+                                <Skeleton width="80px" height="12px" />
+                              </div>
+                            </div>
+                            <Skeleton width="80px" height="32px" className="rounded-lg" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (activeTab === 'followers' ? followers : following).length > 0 ? (
                       <div className="divide-y divide-gray-100">
                         {(activeTab === 'followers' ? followers : following).map(u => (
                           <div

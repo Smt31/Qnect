@@ -188,13 +188,21 @@ public class UserController {
     }
 
     @GetMapping("/{id}/followers")
-    public ResponseEntity<List<UserProfileDto>> getUserFollowers(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.getUserFollowers(id));
+    public ResponseEntity<List<UserProfileDto>> getUserFollowers(@PathVariable Long id, Authentication authentication) {
+        Long currentUserId = null;
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof CustomUserDetails) {
+            currentUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        }
+        return ResponseEntity.ok(userService.getUserFollowers(id, currentUserId));
     }
 
     @GetMapping("/{id}/following")
-    public ResponseEntity<List<UserProfileDto>> getUserFollowing(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.getUserFollowing(id));
+    public ResponseEntity<List<UserProfileDto>> getUserFollowing(@PathVariable Long id, Authentication authentication) {
+        Long currentUserId = null;
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof CustomUserDetails) {
+            currentUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        }
+        return ResponseEntity.ok(userService.getUserFollowing(id, currentUserId));
     }
 
     @DeleteMapping("/me/followers/{followerId}")

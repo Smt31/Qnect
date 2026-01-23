@@ -70,9 +70,10 @@ public class User {
     @Column(columnDefinition = "integer default 0")
     private Integer acceptedAnswersCount = 0;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "user_skills", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "skill")
+    @org.hibernate.annotations.BatchSize(size = 25)
     private List<String> skills;
 
     @ManyToMany(fetch = FetchType.LAZY)

@@ -562,9 +562,53 @@ export const useFollowUser = () => {
 
   return useMutation({
     mutationFn: (userId) => userApi.followUser(userId),
-    onSuccess: (data, userId) => {
+    onMutate: async (userId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['follow-status', userId] });
+      await queryClient.cancelQueries({ queryKey: ['user-profile', userId] });
+      await queryClient.cancelQueries({ queryKey: ['user-followers'] });
+      await queryClient.cancelQueries({ queryKey: ['user-following'] });
+
+      // Snapshot previous values
+      const previousFollowStatus = queryClient.getQueryData(['follow-status', userId]);
+      const previousUserProfile = queryClient.getQueryData(['user-profile', userId]);
+
+      // 1. Optimistically update Follow Status
+      queryClient.setQueryData(['follow-status', userId], true);
+
+      // 2. Optimistically update User Profile (increment followers count)
+      queryClient.setQueryData(['user-profile', userId], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          followersCount: (old.followersCount || 0) + 1,
+          isFollowing: true
+        };
+      });
+
+      // 3. Optimistically update "My Following" list (optional, but good for consistency)
+      // We can't easily add the full user object since we only have userId, 
+      // but if we had the user object passed to the mutation it would be better.
+      // For now, we mainly care about the button state on the profile page.
+
+      return { previousFollowStatus, previousUserProfile };
+    },
+    onError: (err, userId, context) => {
+      if (context?.previousFollowStatus !== undefined) {
+        queryClient.setQueryData(['follow-status', userId], context.previousFollowStatus);
+      }
+      if (context?.previousUserProfile) {
+        queryClient.setQueryData(['user-profile', userId], context.previousUserProfile);
+      }
+    },
+    onSettled: (data, error, userId) => {
+      queryClient.invalidateQueries({ queryKey: ['follow-status', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-profile', userId] });
+      queryClient.invalidateQueries({ queryKey: ['user-stats', userId] });
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      // Also invalidate lists to ensure they are correct
+      queryClient.invalidateQueries({ queryKey: ['user-following'] });
+      queryClient.invalidateQueries({ queryKey: ['user-followers', userId] });
     },
   });
 };
@@ -574,9 +618,43 @@ export const useUnfollowUser = () => {
 
   return useMutation({
     mutationFn: (userId) => userApi.unfollowUser(userId),
-    onSuccess: (data, userId) => {
+    onMutate: async (userId) => {
+      await queryClient.cancelQueries({ queryKey: ['follow-status', userId] });
+      await queryClient.cancelQueries({ queryKey: ['user-profile', userId] });
+
+      const previousFollowStatus = queryClient.getQueryData(['follow-status', userId]);
+      const previousUserProfile = queryClient.getQueryData(['user-profile', userId]);
+
+      // 1. Optimistically update Follow Status
+      queryClient.setQueryData(['follow-status', userId], false);
+
+      // 2. Optimistically update User Profile
+      queryClient.setQueryData(['user-profile', userId], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          followersCount: Math.max(0, (old.followersCount || 0) - 1),
+          isFollowing: false
+        };
+      });
+
+      return { previousFollowStatus, previousUserProfile };
+    },
+    onError: (err, userId, context) => {
+      if (context?.previousFollowStatus !== undefined) {
+        queryClient.setQueryData(['follow-status', userId], context.previousFollowStatus);
+      }
+      if (context?.previousUserProfile) {
+        queryClient.setQueryData(['user-profile', userId], context.previousUserProfile);
+      }
+    },
+    onSettled: (data, error, userId) => {
+      queryClient.invalidateQueries({ queryKey: ['follow-status', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-profile', userId] });
+      queryClient.invalidateQueries({ queryKey: ['user-stats', userId] });
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['user-following'] });
+      queryClient.invalidateQueries({ queryKey: ['user-followers', userId] });
     },
   });
 };

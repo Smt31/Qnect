@@ -376,8 +376,8 @@ public class PostService {
         dto.setLikesCount(post.getLikesCount());
         dto.setUpvotes(post.getUpvotes());
         dto.setDownvotes(post.getDownvotes());
-        // Use dynamic count from database instead of stale stored counter
-        dto.setAnswerCount((int) answerRepository.countByPost(post));
+        // Use stored counter instead of COUNT query (prevents N+1)
+        dto.setAnswerCount(post.getAnswerCount());
         dto.setCommentsCount(post.getCommentsCount());
         dto.setViewsCount(post.getViewsCount());
         dto.setCreatedAt(post.getCreatedAt());
@@ -483,8 +483,8 @@ public class PostService {
             dto.setLikesCount(post.getLikesCount());
             dto.setUpvotes(post.getUpvotes());
             dto.setDownvotes(post.getDownvotes());
-            // Use dynamic count from database instead of stale stored counter
-            dto.setAnswerCount((int) answerRepository.countByPost(post));
+            // Use stored counter instead of COUNT query (prevents N+1)
+            dto.setAnswerCount(post.getAnswerCount());
             dto.setCommentsCount(post.getCommentsCount());
             dto.setViewsCount(post.getViewsCount());
             dto.setCreatedAt(post.getCreatedAt());
@@ -557,8 +557,8 @@ public class PostService {
         dto.setLikesCount(post.getLikesCount());
         dto.setUpvotes(post.getUpvotes());
         dto.setDownvotes(post.getDownvotes());
-        // Use dynamic count from database instead of stale stored counter
-        dto.setAnswerCount((int) answerRepository.countByPost(post));
+        // Use stored counter instead of COUNT query (prevents N+1)
+        dto.setAnswerCount(post.getAnswerCount());
         dto.setCommentsCount(post.getCommentsCount());
         dto.setViewsCount(post.getViewsCount());
         dto.setCreatedAt(post.getCreatedAt());

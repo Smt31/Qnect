@@ -243,14 +243,21 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-public List<UserProfileDto> getUserFollowers(Long userId) {
-    User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-    List<Follow> follows = followRepository.findByFollowing(user);
-    return follows.stream()
-            .map(f -> convertToUserProfileDto(f.getFollower()))
-            .collect(Collectors.toList());
-}
+    public List<UserProfileDto> getUserFollowers(Long userId, Long currentUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        List<Follow> follows = followRepository.findByFollowing(user);
+        
+        List<UserProfileDto> dtos = follows.stream()
+                .map(f -> convertToUserProfileDto(f.getFollower()))
+                .collect(Collectors.toList());
+
+        if (currentUserId != null) {
+            populateFollowStatus(dtos, currentUserId);
+        }
+
+        return dtos;
+    }
     @Transactional(readOnly = true)
     public boolean isFollowing(Long followerId, Long followingId) {
         if (followerId.equals(followingId)) return false;
@@ -289,14 +296,56 @@ public List<UserProfileDto> getUserFollowers(Long userId) {
     }
 
     @Transactional(readOnly = true)
-public List<UserProfileDto> getUserFollowing(Long userId) {
-    User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-    List<Follow> follows = followRepository.findByFollower(user);
-    return follows.stream()
-            .map(f -> convertToUserProfileDto(f.getFollowing()))
-            .collect(Collectors.toList());
-}
+    public List<UserProfileDto> getUserFollowing(Long userId, Long currentUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        List<Follow> follows = followRepository.findByFollower(user);
+        
+        List<UserProfileDto> dtos = follows.stream()
+                .map(f -> convertToUserProfileDto(f.getFollowing()))
+                .collect(Collectors.toList());
+
+        if (currentUserId != null) {
+            populateFollowStatus(dtos, currentUserId);
+        }
+
+        return dtos;
+    }
+
+    private void populateFollowStatus(List<UserProfileDto> users, Long currentUserId) {
+        if (users.isEmpty()) return;
+        User currentUser = userRepository.findById(currentUserId).orElse(null);
+        if (currentUser == null) return;
+        
+        // Optimize: Fetch all follows from current user to the target users in one query
+        // But for simplicity/correctness first:
+        // Or simpler: Get local list of IDs I follow?
+        // Let's iterate for now or use `followRepository.findByFollower` logic if list is large.
+        // Better:
+        // Set<Long> userIds = users.stream().map(UserProfileDto::getUserId).collect(Collectors.toSet());
+        // List<Follow> myFollows = followRepository.findByFollowerAndFollowingIdIn(currentUser, userIds);
+        // Set<Long> followedIds = myFollows.stream().map(f -> f.getFollowing().getUserId()).collect(Collectors.toSet());
+        // users.forEach(u -> u.setIsFollowing(followedIds.contains(u.getUserId())));
+        
+        // Since I don't want to modify Repository right now without reading it, I'll fallback to N+1 safe check or assuming list is small (pagination 10-30).
+        // Actually, let's use the individual check for simplicity if we can't easily add repo method.
+        // Wait, `convertToUserProfileDto` could just take `currentUser`? No.
+        
+        // Let's do the looped check for now. It is N queries if not batching, but page size is small.
+        // Alternatively, fetch ALL my followings (might be large).
+        
+        // Let's go with the loop for this iteration, it's safer logic-wise without repo changes.
+        // Performance note: If this is slow, I'll recommend batch fetching in next iteration.
+        
+        for (UserProfileDto dto : users) {
+             if (dto.getUserId().equals(currentUserId)) {
+                 dto.setIsFollowing(false); // Can't follow self
+             } else {
+                 dto.setIsFollowing(followRepository.existsByFollowerAndFollowing(currentUser, 
+                     userRepository.getReferenceById(dto.getUserId())));
+             }
+        }
+    }
     @Transactional
     public void removeFollower(Long userId, Long followerId) {
         // userId is 'me', followerId is the person I want to remove from my followers

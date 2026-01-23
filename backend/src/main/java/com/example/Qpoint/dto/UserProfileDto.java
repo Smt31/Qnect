@@ -22,4 +22,5 @@ public class UserProfileDto {
     private List<String> skills;
     private Boolean verified;
     private Boolean allowPublicMessages;
+    private Boolean isFollowing;
 }
