@@ -20,13 +20,13 @@ public class OtpService {
 
     private final OtpTokenRepository otpRepo;
     private final UserRepository userRepo;
-    private final MailService mailService;
+    private final BrevoMailService brevoMailService;
     private final PasswordEncoder passwordEncoder;
 
-    public OtpService(OtpTokenRepository otpRepo, UserRepository userRepo, MailService mailService, PasswordEncoder passwordEncoder) {
+    public OtpService(OtpTokenRepository otpRepo, UserRepository userRepo, BrevoMailService brevoMailService, PasswordEncoder passwordEncoder) {
         this.otpRepo = otpRepo;
         this.userRepo = userRepo;
-        this.mailService = mailService;
+        this.brevoMailService = brevoMailService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -45,16 +45,14 @@ public class OtpService {
 
         otpRepo.save(otp);
         try {
-            mailService.sendOtpEmail(email, code);
+            brevoMailService.sendOtpEmail(email, code);
         } catch (Exception e) {
-            // Fallback to console if mail is not configured
+            // Fallback to console if Brevo is not configured
             System.err.println("\n⚠ EMAIL SEND FAILED - Using console fallback");
             System.err.println("Error: " + e.getMessage());
-            System.err.println("\nTo enable email:");
-            System.err.println("1. Set SMTP_USER and SMTP_PASS environment variables, OR");
-            System.err.println("2. Update application.properties with your email credentials");
-            System.err.println("   For Gmail: Use App Password (not regular password)");
-            System.err.println("   Get it from: https://myaccount.google.com/apppasswords\n");
+            System.err.println("Full error details:");
+            e.printStackTrace();
+    
             System.out.println("========================================");
             System.out.println("OTP CODE: " + code);
             System.out.println("Email: " + email);
