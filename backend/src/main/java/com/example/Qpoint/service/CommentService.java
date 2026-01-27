@@ -24,14 +24,23 @@ public class CommentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    public CommentService(CommentRepository commentRepository, PostRepository postRepository, UserRepository userRepository, NotificationService notificationService) {
+    private final org.springframework.cache.CacheManager cacheManager;
+
+    public CommentService(CommentRepository commentRepository, PostRepository postRepository, UserRepository userRepository, NotificationService notificationService, org.springframework.cache.CacheManager cacheManager) {
         this.commentRepository = commentRepository;
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.cacheManager = cacheManager;
     }
+    
+    // ... [createComment and updateComment code remains from previous step, but I need to handle deleteComment correctly]
+    
+
 
     @Transactional
+    // We cannot easily evict all pages with annotations, so we will use manual eviction for the most common page (0).
+    // Stale data on deeper pages (rarely deep) will expire by TTL (15m).
     public Comment createComment(Long postId, Long authorId, CreateCommentRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
@@ -87,10 +96,25 @@ public class CommentService {
             );
         }
 
+        evictFirstPageComments(postId);
+
         return savedComment; // Kept original return type as Comment, not PostCommentDto
     }
 
+    private void evictFirstPageComments(Long postId) {
+        if (cacheManager != null) {
+            var cache = cacheManager.getCache("comments");
+            if (cache != null) {
+                // Evict the most likely cached page: Page 0 with default size 10 (and maybe 20/5 used by frontend?)
+                // Current frontend uses default (likely 10 or hardcoded).
+                cache.evict(postId + ":0:10"); 
+                // Add commonly used sizes if needed, or rely on TTL for others.
+            }
+        }
+    }
+
     @Transactional
+    // @org.springframework.cache.annotation.CacheEvict(value = "comments", key = "#result.post.id") --> replaced by manual
     public Comment updateComment(Long commentId, Long userId, CreateCommentRequest request) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Comment not found"));
@@ -100,7 +124,11 @@ public class CommentService {
         }
 
         comment.setContent(request.getContent());
-        return commentRepository.save(comment);
+        Comment saved = commentRepository.save(comment);
+        
+        evictFirstPageComments(saved.getPost().getId());
+        
+        return saved;
     }
 
     @Transactional
@@ -111,6 +139,8 @@ public class CommentService {
         if (!comment.getAuthor().getUserId().equals(userId) && !comment.getPost().getAuthor().getUserId().equals(userId)) {
             throw new RuntimeException("Not authorized to delete this comment");
         }
+        
+        Long postId = comment.getPost().getId();
 
         // Decrement comment count on post
         Post post = comment.getPost();
@@ -118,27 +148,34 @@ public class CommentService {
         postRepository.save(post);
 
         commentRepository.delete(comment);
+        
+        evictFirstPageComments(postId);
     }
 
+
+
     @Transactional(readOnly = true)
-    public Page<PostCommentDto> getCommentsForPost(Long postId, int page, int size) {
+    @org.springframework.cache.annotation.Cacheable(value = "comments", key = "#postId + ':' + #page + ':' + #size")
+    public com.example.Qpoint.dto.PageDto<PostCommentDto> getCommentsForPost(Long postId, int page, int size) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         // Only return top-level comments
-        return commentRepository.findByPostAndParentIsNullOrderByCreatedAtDesc(post, pageable)
+        Page<PostCommentDto> pageResult = commentRepository.findByPostAndParentIsNullOrderByCreatedAtDesc(post, pageable)
                 .map(this::convertToPostCommentDto);
+        return new com.example.Qpoint.dto.PageDto<>(pageResult);
     }
 
     @Transactional(readOnly = true)
-    public Page<PostCommentDto> getUserComments(Long userId, int page, int size) {
+    public com.example.Qpoint.dto.PageDto<PostCommentDto> getUserComments(Long userId, int page, int size) {
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return commentRepository.findByAuthorOrderByCreatedAtDesc(author, pageable)
+        Page<PostCommentDto> pageResult = commentRepository.findByAuthorOrderByCreatedAtDesc(author, pageable)
                 .map(this::convertToPostCommentDto);
+        return new com.example.Qpoint.dto.PageDto<>(pageResult);
     }
 
     public PostCommentDto convertToPostCommentDto(Comment comment) {

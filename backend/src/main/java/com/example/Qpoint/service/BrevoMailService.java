@@ -24,14 +24,6 @@ public class BrevoMailService {
             @Value("${brevo.from.email}") String fromEmail,
             @Value("${brevo.from.name:Qpoint}") String fromName) {
         
-        // Debug logging
-        System.out.println("=== BREVO CONFIG DEBUG ===");
-        System.out.println("API Key received: " + (apiKey != null ? apiKey.substring(0, Math.min(15, apiKey.length())) + "..." : "NULL"));
-        System.out.println("From Email: " + fromEmail);
-        System.out.println("From Name: " + fromName);
-        System.out.println("API Key starts with 'xkeysib-': " + (apiKey != null && apiKey.startsWith("xkeysib-")));
-        System.out.println("========================");
-        
         // Configure API client
         ApiClient defaultClient = Configuration.getDefaultApiClient();
         ApiKeyAuth apiKeyAuth = (ApiKeyAuth) defaultClient.getAuthentication("api-key");
@@ -60,9 +52,8 @@ public class BrevoMailService {
         email.setHtmlContent(htmlContent);
         email.setTextContent(textContent);
 
-        sibModel.CreateSmtpEmail response = apiInstance.sendTransacEmail(email);
-        System.out.println("Email sent successfully via Brevo. Message ID: " + response.getMessageId());
-        System.out.println("Check status at: https://app.brevo.com/transactional/emails/" + response.getMessageId());
+        apiInstance.sendTransacEmail(email);
+        System.out.println("Email sent successfully via Brevo to: " + to);
     }
 
     private String buildOtpEmailHtml(String code) {
@@ -103,8 +94,6 @@ public class BrevoMailService {
                 Your OTP code is: %s
                 
                 This code is valid for 30 Seconds.
-                
-                If you didn't request this code, please ignore this email.
                 
                 © 2026 Qpoint. All rights reserved.
                 """, code);

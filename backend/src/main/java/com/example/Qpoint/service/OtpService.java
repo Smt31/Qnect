@@ -3,28 +3,28 @@ package com.example.Qpoint.service;
 
 import com.example.Qpoint.dto.VerifyOtpRequest;
 import com.example.Qpoint.models.OtpPurpose;
-import com.example.Qpoint.models.OtpToken;
 import com.example.Qpoint.models.User;
-import com.example.Qpoint.repository.OtpTokenRepository;
 import com.example.Qpoint.repository.UserRepository;
 import com.example.Qpoint.util.OtpUtil;
 import jakarta.transaction.Transactional;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class OtpService {
 
-    private final OtpTokenRepository otpRepo;
+    private final StringRedisTemplate redisTemplate;
     private final UserRepository userRepo;
     private final BrevoMailService brevoMailService;
     private final PasswordEncoder passwordEncoder;
 
-    public OtpService(OtpTokenRepository otpRepo, UserRepository userRepo, BrevoMailService brevoMailService, PasswordEncoder passwordEncoder) {
-        this.otpRepo = otpRepo;
+    public OtpService(StringRedisTemplate redisTemplate, UserRepository userRepo, BrevoMailService brevoMailService, PasswordEncoder passwordEncoder) {
+        this.redisTemplate = redisTemplate;
         this.userRepo = userRepo;
         this.brevoMailService = brevoMailService;
         this.passwordEncoder = passwordEncoder;
@@ -32,26 +32,18 @@ public class OtpService {
 
     public void sendOtp(String email, OtpPurpose purpose) {
         String code = OtpUtil.generateNumericOtp(6);
-        Instant now = Instant.now();
+        
+        // Store in Redis with 5 minutes TTL
+        // Key format: otp:{email}
+        String key = "otp:" + email;
+        redisTemplate.opsForValue().set(key, code, 5, TimeUnit.MINUTES);
 
-        OtpToken otp = OtpToken.builder()
-                .email(email)
-                .code(code)
-                .purpose(purpose == null ? OtpPurpose.LOGIN : purpose)
-                .createdAt(now)
-                .expiresAt(now.plusSeconds(5 * 60))
-                .used(false)
-                .build();
-
-        otpRepo.save(otp);
         try {
             brevoMailService.sendOtpEmail(email, code);
         } catch (Exception e) {
             // Fallback to console if Brevo is not configured
             System.err.println("\n⚠ EMAIL SEND FAILED - Using console fallback");
             System.err.println("Error: " + e.getMessage());
-            System.err.println("Full error details:");
-            e.printStackTrace();
     
             System.out.println("========================================");
             System.out.println("OTP CODE: " + code);
@@ -64,14 +56,15 @@ public class OtpService {
 
     @Transactional
     public Optional<User> verifyOtpAndCreateUser(VerifyOtpRequest req) {
-        Optional<OtpToken> maybe = otpRepo.findTopByEmailAndCodeAndUsedFalseOrderByCreatedAtDesc(req.getEmail(), req.getCode());
-        if (maybe.isEmpty()) return Optional.empty();
+        String key = "otp:" + req.getEmail();
+        String storedCode = redisTemplate.opsForValue().get(key);
 
-        OtpToken otp = maybe.get();
-        if (Boolean.TRUE.equals(otp.getUsed()) || Instant.now().isAfter(otp.getExpiresAt())) return Optional.empty();
+        if (storedCode == null || !storedCode.equals(req.getCode())) {
+            return Optional.empty();
+        }
 
-        otp.setUsed(true);
-        otpRepo.save(otp);
+        // OTP valid, delete it
+        redisTemplate.delete(key);
 
         User user = userRepo.findByEmail(req.getEmail()).orElseGet(() -> {
             String finalUsername;
@@ -146,10 +139,6 @@ public class OtpService {
         }
 
         if (updated) userRepo.save(user);
-
-        // link OTP to the resolved user for history/debugging
-        otp.setUser(user);
-        otpRepo.save(otp);
 
         return Optional.of(user);
     }

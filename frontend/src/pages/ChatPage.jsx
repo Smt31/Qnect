@@ -122,6 +122,7 @@ const ChatPage = () => {
     // 5. Select User / Load Messages
     const handleSelectUser = async (conv) => {
         setSelectedUser(conv);
+        setMessages([]); // Clear messages immediately to avoid showing old chat history
         try {
             const msgs = await chatApi.getMessages(conv.otherUserId);
             setMessages(msgs);
@@ -216,6 +217,7 @@ const ChatPage = () => {
 
                     <div className={`${!selectedUser ? 'hidden md:flex' : 'flex'} flex-1 h-full`}>
                         <ChatWindow
+                            key={selectedUser ? selectedUser.otherUserId : 'empty'}
                             currentUser={currentUser}
                             selectedUser={selectedUser}
                             messages={messages}

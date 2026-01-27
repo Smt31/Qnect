@@ -226,11 +226,11 @@ public class UserController {
     }
     
     @GetMapping("/{id}/questions")
-    public ResponseEntity<Page<FeedPostDto>> getUserQuestions(
+    public ResponseEntity<com.example.Qpoint.dto.PageDto<FeedPostDto>> getUserQuestions(
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Page<FeedPostDto> questions = postService.getUserQuestions(id, page, size);
+        com.example.Qpoint.dto.PageDto<FeedPostDto> questions = postService.getUserQuestions(id, page, size);
         return ResponseEntity.ok(questions);
     }
     
@@ -244,14 +244,14 @@ public class UserController {
     }
     
     @GetMapping("/{id}/posts-by-type")
-    public ResponseEntity<Page<FeedPostDto>> getUserPostsByType(
+    public ResponseEntity<com.example.Qpoint.dto.PageDto<FeedPostDto>> getUserPostsByType(
             @PathVariable Long id,
             @RequestParam String type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
             com.example.Qpoint.models.PostType postType = com.example.Qpoint.models.PostType.valueOf(type.toUpperCase());
-            Page<FeedPostDto> posts = postService.getUserPostsByType(id, postType, page, size);
+            com.example.Qpoint.dto.PageDto<FeedPostDto> posts = postService.getUserPostsByType(id, postType, page, size);
             return ResponseEntity.ok(posts);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();

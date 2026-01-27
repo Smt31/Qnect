@@ -8,12 +8,30 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage }) => {
     const fileInputRef = useRef(null);
     const messagesEndRef = useRef(null);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Track previous message length to determine if this is an initial load or new message
+    const prevMessagesLength = useRef(0);
+
+    const scrollToBottom = (behavior = 'smooth') => {
+        messagesEndRef.current?.scrollIntoView({ behavior });
     };
 
     useEffect(() => {
-        scrollToBottom();
+        const currentLength = messages.length;
+        const prevLength = prevMessagesLength.current;
+
+        // If loading messages for the first time (prev=0), use 'auto' (instant)
+        // If adding messages (prev > 0), use 'smooth'
+        const isInitialLoad = prevLength === 0;
+        const hasNewMessages = currentLength > prevLength;
+
+        if (hasNewMessages) {
+            // Use timeout to ensure DOM layout is complete
+            setTimeout(() => {
+                scrollToBottom(isInitialLoad ? 'auto' : 'smooth');
+            }, 100);
+        }
+
+        prevMessagesLength.current = currentLength;
     }, [messages]);
 
     const handleSend = (e) => {

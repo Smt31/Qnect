@@ -1,53 +1,61 @@
 package com.example.Qpoint.config;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import org.springframework.cache.CacheManager;
+import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
-/**
- * Cache configuration using Caffeine.
- * 
- * Caching Strategy:
- * - Users: 10 min TTL (frequently accessed for profiles, auth)
- * - Posts/Questions: 5 min TTL (read-heavy, but updates need to reflect)
- * - Topics: 30 min TTL (relatively static data)
- * - Feed: 2 min TTL (personalized, needs fresher data)
- * 
- * NOT cached:
- * - Authentication/OTP (security)
- * - Notifications (real-time)
- * - Write operations
- */
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 @Configuration
 @EnableCaching
 public class CacheConfig {
 
     @Bean
-    public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager();
-        
-        // Default cache configuration
-        cacheManager.setCaffeine(Caffeine.newBuilder()
-                .maximumSize(500)
-                .expireAfterWrite(10, TimeUnit.MINUTES)
-                .recordStats());
-        
-        return cacheManager;
+    public RedisCacheConfiguration cacheConfiguration() {
+        return createCacheConfig(Duration.ofMinutes(10));
     }
-    
-    /**
-     * Custom cache configurations for different cache regions.
-     * Usage in services:
-     * - @Cacheable("users") for user lookups
-     * - @Cacheable("posts") for post/question lookups  
-     * - @Cacheable("topics") for topic lists
-     * - @Cacheable("userStats") for user statistics
-     * - @Cacheable("news") for news articles (15 min TTL)
-     * - @CacheEvict to invalidate on updates
-     */
+
+    @Bean
+    public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
+        return (builder) -> builder
+                .withCacheConfiguration("users", createCacheConfig(Duration.ofMinutes(30)))
+                .withCacheConfiguration("userStats", createCacheConfig(Duration.ofMinutes(30)))
+                .withCacheConfiguration("posts", createCacheConfig(Duration.ofMinutes(15)))
+                .withCacheConfiguration("topics", createCacheConfig(Duration.ofHours(1)))
+                .withCacheConfiguration("trendingTopics", createCacheConfig(Duration.ofMinutes(30)))
+                .withCacheConfiguration("news", createCacheConfig(Duration.ofMinutes(30)))
+                .withCacheConfiguration("conversations", createCacheConfig(Duration.ofMinutes(10)))
+                .withCacheConfiguration("messages", createCacheConfig(Duration.ofMinutes(5)))
+                .withCacheConfiguration("comments", createCacheConfig(Duration.ofMinutes(15)))
+                .withCacheConfiguration("userConnections", createCacheConfig(Duration.ofMinutes(30)))
+                .withCacheConfiguration("userPosts", createCacheConfig(Duration.ofMinutes(15)));
+    }
+
+    private RedisCacheConfiguration createCacheConfig(Duration ttl) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        objectMapper.activateDefaultTyping(
+                LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+        );
+
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+
+        return RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(ttl)
+                .disableCachingNullValues()
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
+    }
 }

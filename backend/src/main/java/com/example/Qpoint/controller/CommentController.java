@@ -86,7 +86,7 @@ public class CommentController {
     }
 
     @GetMapping("/post/{postId}")
-    public ResponseEntity<Page<PostCommentDto>> getCommentsForPost(@PathVariable Long postId,
+    public ResponseEntity<com.example.Qpoint.dto.PageDto<PostCommentDto>> getCommentsForPost(@PathVariable Long postId,
                                                                     @RequestParam(defaultValue = "0") int page,
                                                                     @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(commentService.getCommentsForPost(postId, page, size));

@@ -201,7 +201,11 @@ public class UserService {
     @Transactional
     @Caching(evict = {
         @CacheEvict(value = "userStats", key = "#followerId"),
-        @CacheEvict(value = "userStats", key = "#followingId")
+        @CacheEvict(value = "userStats", key = "#followingId"),
+        // Evict 'following' list of the follower
+        @CacheEvict(value = "userConnections", key = "#followerId + ':following'"),
+        // Evict 'followers' list of the following user
+        @CacheEvict(value = "userConnections", key = "#followingId + ':followers'")
     })
     public void followUser(Long followerId, Long followingId) {
         if (followerId.equals(followingId)) {
@@ -243,6 +247,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "userConnections", key = "#userId + ':followers'")
     public List<UserProfileDto> getUserFollowers(Long userId, Long currentUserId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -271,7 +276,11 @@ public class UserService {
     @Transactional
     @Caching(evict = {
         @CacheEvict(value = "userStats", key = "#followerId"),
-        @CacheEvict(value = "userStats", key = "#followingId")
+        @CacheEvict(value = "userStats", key = "#followingId"),
+        // Evict 'following' list of the follower
+        @CacheEvict(value = "userConnections", key = "#followerId + ':following'"),
+        // Evict 'followers' list of the following user
+        @CacheEvict(value = "userConnections", key = "#followingId + ':followers'")
     })
     public void unfollowUser(Long followerId, Long followingId) {
         User follower = userRepository.findById(followerId)
@@ -296,6 +305,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "userConnections", key = "#userId + ':following'")
     public List<UserProfileDto> getUserFollowing(Long userId, Long currentUserId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -347,6 +357,12 @@ public class UserService {
         }
     }
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "userStats", key = "#userId"),
+        @CacheEvict(value = "userStats", key = "#followerId"),
+        @CacheEvict(value = "userConnections", key = "#userId + ':followers'"),
+        @CacheEvict(value = "userConnections", key = "#followerId + ':following'")
+    })
     public void removeFollower(Long userId, Long followerId) {
         // userId is 'me', followerId is the person I want to remove from my followers
         User me = userRepository.findById(userId)

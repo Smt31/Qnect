@@ -113,14 +113,10 @@
 			<version>1.34.0</version>
 		</dependency>
 
-		<!-- Spring Cache with Caffeine -->
+		<!-- Redis Cache -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-cache</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>com.github.ben-manes.caffeine</groupId>
-			<artifactId>caffeine</artifactId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
 		</dependency>
 
 

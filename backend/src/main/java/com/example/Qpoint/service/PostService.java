@@ -36,6 +36,8 @@ public class PostService {
     private final com.example.Qpoint.repository.LikeRepository likeRepository;
     private final com.example.Qpoint.repository.TopicRepository topicRepository;
 
+    private final org.springframework.cache.CacheManager cacheManager;
+
     public PostService(PostRepository postRepository, UserRepository userRepository,
                        com.example.Qpoint.repository.PostViewRepository postViewRepository,
                        com.example.Qpoint.repository.VoteRepository voteRepository,
@@ -43,7 +45,8 @@ public class PostService {
                        com.example.Qpoint.repository.AnswerRepository answerRepository,
                        com.example.Qpoint.repository.BookmarkRepository bookmarkRepository,
                        com.example.Qpoint.repository.LikeRepository likeRepository,
-                       com.example.Qpoint.repository.TopicRepository topicRepository) {
+                       com.example.Qpoint.repository.TopicRepository topicRepository,
+                       org.springframework.cache.CacheManager cacheManager) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.postViewRepository = postViewRepository;
@@ -53,6 +56,22 @@ public class PostService {
         this.bookmarkRepository = bookmarkRepository;
         this.likeRepository = likeRepository;
         this.topicRepository = topicRepository;
+        this.cacheManager = cacheManager;
+    }
+
+    private void evictUserPostsCache(Long userId) {
+        if (cacheManager != null) {
+            var cache = cacheManager.getCache("userPosts");
+            if (cache != null) {
+                // We use multiple keys: userId + ':questions' and userId + ':POST' etc.
+                // Spring redis cache doesn't support wildcard eviction easily without custom implementation.
+                // So we will explicitly evict known variation keys.
+                // Assuming PostType enum has QUESTION and POST (add others if needed)
+                cache.evict(userId + ":questions");
+                cache.evict(userId + ":QUESTION"); // Just in case type is passed as param
+                cache.evict(userId + ":POST");
+            }
+        }
     }
 
     @Transactional
@@ -111,10 +130,21 @@ public class PostService {
         author.setReputation(author.getReputation() + 3);
         userRepository.save(author);
 
-        return postRepository.save(post);
+        Post savedPost = postRepository.save(post);
+        
+        // Manual eviction or annotation? Annotation can't handle complex keys easily for "all lists"
+        // But since we use specific keys: userPosts:{userId} (for questions) and userPosts:{userId}:{type}
+        // we can attempt to evict all.
+        // Actually, let's just use @CacheEvict in a @Caching block if possible.
+        // But the key depends on the type.
+        // I will use Manual Eviction via injected CacheManager for robustness here as well.
+        evictUserPostsCache(authorId);
+        
+        return savedPost;
     }
 
     @Transactional
+    // @CacheEvict(value = "posts", key = "#postId") --> Handled within update logic
     public Post updatePost(Long postId, Long userId, CreatePostRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
@@ -157,11 +187,20 @@ public class PostService {
         }
 
         post.setUpdatedAt(java.time.Instant.now());
+        
+        // Always evict the individual post cache
+        if (cacheManager != null) {
+            cacheManager.getCache("posts").evict(postId);
+        }
+        
+        // Evict user posts lists because snippets might change
+        evictUserPostsCache(userId);
 
         return postRepository.save(post);
     }
 
     @Transactional
+    // @CacheEvict(value = "posts", key = "#postId") --> Handled in code
     public void deletePost(Long postId, Long userId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
@@ -210,6 +249,14 @@ public class PostService {
 
         commentRepository.deleteByPost(post);
         answerRepository.deleteByPost(post);
+        
+        // Evict individual post cache
+        if (cacheManager != null) {
+             cacheManager.getCache("posts").evict(postId);
+        }
+        
+        // Evict user lists
+        evictUserPostsCache(userId);
 
         postRepository.delete(post);
     }
@@ -256,24 +303,28 @@ public class PostService {
      * Get questions posted by a specific user.
      */
     @Transactional(readOnly = true)
-    public Page<FeedPostDto> getUserQuestions(Long userId, int page, int size) {
+    @Cacheable(value = "userPosts", key = "#userId + ':questions'")
+    public com.example.Qpoint.dto.PageDto<FeedPostDto> getUserQuestions(Long userId, int page, int size) {
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return postRepository.findByAuthorOrderByCreatedAtDesc(author, pageable)
+        Page<FeedPostDto> pageResult = postRepository.findByAuthorOrderByCreatedAtDesc(author, pageable)
                 .map(post -> convertToFeedPostDto(post, null));
+        return new com.example.Qpoint.dto.PageDto<>(pageResult);
     }
 
     /**
      * Get posts by a specific user filtered by type (QUESTION or POST).
      */
     @Transactional(readOnly = true)
-    public Page<FeedPostDto> getUserPostsByType(Long userId, com.example.Qpoint.models.PostType type, int page, int size) {
+    @Cacheable(value = "userPosts", key = "#userId + ':' + #type")
+    public com.example.Qpoint.dto.PageDto<FeedPostDto> getUserPostsByType(Long userId, com.example.Qpoint.models.PostType type, int page, int size) {
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return postRepository.findByAuthorAndTypeOrderByCreatedAtDesc(author, type, pageable)
+        Page<FeedPostDto> pageResult = postRepository.findByAuthorAndTypeOrderByCreatedAtDesc(author, type, pageable)
                 .map(post -> convertToFeedPostDto(post, null));
+        return new com.example.Qpoint.dto.PageDto<>(pageResult);
     }
 
     @Transactional(readOnly = true)

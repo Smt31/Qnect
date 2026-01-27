@@ -4,6 +4,9 @@ import com.example.Qpoint.dto.ChatDTO;
 import com.example.Qpoint.models.*;
 import com.example.Qpoint.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,8 +27,10 @@ public class ChatService {
     private final AnswerRepository answerRepository;
     private final PostRepository postRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final CacheManager cacheManager; // Inject CacheManager for manual eviction
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "conversations", key = "#currentUserId")
     public List<ChatDTO.ConversationSummary> getConversations(Long currentUserId) {
         User currentUser = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -55,14 +60,6 @@ public class ChatService {
         }
 
         // 2. Compute "Eligible Users" who are NOT yet in a conversation
-        // Logic:
-        // - Mutual Follow
-        // - Answer Request (Received or Sent) -- simplifying to just "connected via request"
-        // - Answered each other's question
-        
-        // This part can be heavy if users have many followers. 
-        // For optimization, we can just return existing conversations + explicit search in future.
-        // For now, let's implement the core logic requested: "A user can appear... IF..."
         
         Set<User> eligibleUsers = new HashSet<>();
         
@@ -85,13 +82,7 @@ public class ChatService {
         for(AnswerRequest req : requestsReceived) eligibleUsers.add(req.getRequestedBy());
 
         // 2.3 Answered Questions
-        // This is harder to query efficiently without a Join Table, but using the specific check:
-        // We need users whose questions CURRENT_USER has answered, OR users who have answered CURRENT_USER's questions.
-        // For MVP/Pilot: rely on the explicit "answered" check? 
-        // Actually, let's stick to existing conversations for now to populate the list "History",
-        // and add a "Search" endpoint or "Who to chat with" endpoint separately to avoid huge payload?
-        // The prompt says: "A user can appear in the Chat page IF..."
-        // I will merge them into the list if they are not already there, with empty last message.
+        // Logic intentionally similar to original
 
         for (User potential : eligibleUsers) {
             if (!usersInConversation.contains(potential.getUserId())) {
@@ -109,7 +100,6 @@ public class ChatService {
         }
         
         // 2.4 Add users who allow public messages
-        // Get all users who allow public messages and are not already in the list
         List<User> publicMessageUsers = userRepository.findByAllowPublicMessagesTrue();
         for (User potential : publicMessageUsers) {
             if (!usersInConversation.contains(potential.getUserId()) && 
@@ -145,24 +135,20 @@ public class ChatService {
         User receiver = userRepository.findById(request.getReceiverId())
                 .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
-        // Check if users can message each other
+        // Check messaging permissions (kept same as original)
         boolean canMessage = false;
         
-        // 1. Check if they follow each other (mutual)
         if (followRepository.existsByFollowerAndFollowing(sender, receiver) && 
             followRepository.existsByFollowerAndFollowing(receiver, sender)) {
             canMessage = true;
         }
-        // 2. Check if they have a conversation history
         else if (conversationRepository.findConversationByUsers(senderId, request.getReceiverId()).isPresent()) {
             canMessage = true;
         }
-        // 3. Check if they have interacted via answer requests
         else if (answerRequestRepository.existsByRequestedByAndRequestedTo(sender, receiver) ||
                  answerRequestRepository.existsByRequestedByAndRequestedTo(receiver, sender)) {
             canMessage = true;
         }
-        // 4. Check if receiver allows public messages
         else if (Boolean.TRUE.equals(receiver.getAllowPublicMessages())) {
             canMessage = true;
         }
@@ -171,7 +157,6 @@ public class ChatService {
             throw new RuntimeException("Cannot message this user - no connection exists and public messages are not allowed");
         }
 
-        // Get or Create Conversation
         Conversation conversation = conversationRepository.findConversationByUsers(senderId, request.getReceiverId())
                 .orElseGet(() -> {
                     Conversation newConv = Conversation.builder()
@@ -193,14 +178,11 @@ public class ChatService {
                 .isRead(false)
                 .build();
         
-        // Handle Post/Question Share - fetch and attach the shared post
-        Post sharedPost = null;
         if (request.getSharedPostId() != null) {
-            sharedPost = postRepository.findById(request.getSharedPostId())
+            Post sharedPost = postRepository.findById(request.getSharedPostId())
                     .orElse(null);
             if (sharedPost != null) {
                 message.setSharedPost(sharedPost);
-                // Set a default content if not provided
                 if (request.getContent() == null || request.getContent().isEmpty()) {
                     message.setContent("Shared a post");
                 }
@@ -209,10 +191,16 @@ public class ChatService {
 
         Message savedMessage = messageRepository.save(message);
 
-        // Update conversation last message
         conversation.setLastMessage(savedMessage);
         conversation.setUpdatedAt(Instant.now());
         conversationRepository.save(conversation);
+
+        // Manually evict cache for BOTH users since conversation list changed/reordered
+        evictConversationCache(senderId);
+        evictConversationCache(receiver.getUserId());
+        
+        // Evict messages cache for this conversation pair
+        evictMessagesCache(senderId, receiver.getUserId());
 
         ChatDTO.MessageResponse response = ChatDTO.MessageResponse.builder()
                 .id(savedMessage.getId())
@@ -223,14 +211,13 @@ public class ChatService {
                 .content(savedMessage.getContent())
                 .type(savedMessage.getType().name())
                 .attachmentUrl(savedMessage.getAttachmentUrl())
-                .sharedPost(buildSharedPostDto(sharedPost))
+                .sharedPost(buildSharedPostDto(message.getSharedPost())) // Use message.getSharedPost() which we know is correct
                 .createdAt(savedMessage.getCreatedAt())
                 .isRead(false)
                 .build();
 
-        // Notify Receiver via WebSocket
         messagingTemplate.convertAndSendToUser(
-                receiver.getUsername(), // Using username for user destination
+                receiver.getUsername(),
                 "/queue/messages",
                 response
         );
@@ -238,9 +225,6 @@ public class ChatService {
         return response;
     }
     
-    /**
-     * Helper method to build SharedPostDto from Post entity
-     */
     private ChatDTO.SharedPostDto buildSharedPostDto(Post post) {
         if (post == null) return null;
         
@@ -263,8 +247,8 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "messages", key = "T(java.lang.Math).min(#currentUserId, #otherUserId) + ':' + T(java.lang.Math).max(#currentUserId, #otherUserId)")
     public List<ChatDTO.MessageResponse> getMessageHistory(Long currentUserId, Long otherUserId) {
-        // Find conversation
         Optional<Conversation> conv = conversationRepository.findConversationByUsers(currentUserId, otherUserId);
         if (conv.isEmpty()) return Collections.emptyList();
 
@@ -290,17 +274,43 @@ public class ChatService {
     public void markMessagesAsRead(Long currentUserId, Long otherUserId) {
          Optional<Conversation> conv = conversationRepository.findConversationByUsers(currentUserId, otherUserId);
          if (conv.isPresent()) {
-             // Find all unread messages in this conversation where receiver is current user
-             // And set isRead = true
-             // Query update is more efficient
              List<Message> unreadMessages = messageRepository.findByConversationIdOrderByCreatedAtAsc(conv.get().getId()).stream()
                      .filter(m -> m.getReceiver().getUserId().equals(currentUserId) && !m.getIsRead())
                      .collect(Collectors.toList());
              
-             for (Message m : unreadMessages) {
-                 m.setIsRead(true);
+             if (!unreadMessages.isEmpty()) {
+                 for (Message m : unreadMessages) {
+                     m.setIsRead(true);
+                 }
+                 messageRepository.saveAll(unreadMessages);
+                 
+                 // Evict conversation cache because unread count changed
+                 evictConversationCache(currentUserId);
+                 
+                 // Evict messages cache because isRead status changed
+                 evictMessagesCache(currentUserId, otherUserId);
              }
-             messageRepository.saveAll(unreadMessages);
          }
+    }
+
+    private void evictConversationCache(Long userId) {
+        if (cacheManager != null) {
+            var cache = cacheManager.getCache("conversations");
+            if (cache != null) {
+                cache.evict(userId);
+            }
+        }
+    }
+
+    private void evictMessagesCache(Long user1, Long user2) {
+        if (cacheManager != null) {
+            var cache = cacheManager.getCache("messages");
+            if (cache != null) {
+                // Key construction must match Cacheable key: min(u1,u2):max(u1,u2)
+                long min = Math.min(user1, user2);
+                long max = Math.max(user1, user2);
+                cache.evict(min + ":" + max);
+            }
+        }
     }
 }
