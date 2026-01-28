@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { chatApi } from '../../api';
+import { useQueryClient } from '@tanstack/react-query';
+import webSocketService from '../../services/WebSocketService';
 import MessageSkeleton from './MessageSkeleton';
+import MessageContextMenu from './MessageContextMenu';
 
-const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, loading }) => {
+const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, onRefetch, loading }) => {
     const [newMessage, setNewMessage] = useState('');
     const [selectedImage, setSelectedImage] = useState(null); // For lightbox
     const [isUploading, setIsUploading] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null); // { message, position: { x, y } }
     const fileInputRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const queryClient = useQueryClient();
 
     // Track previous message length to determine if this is an initial load or new message
     const prevMessagesLength = useRef(0);
@@ -34,6 +39,24 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, loadin
 
         prevMessagesLength.current = currentLength;
     }, [messages]);
+
+    // WebSocket listener for message deletions
+    useEffect(() => {
+        if (!currentUser || !selectedUser) return;
+
+        const subscription = webSocketService.subscribeToMessageDeleted((event) => {
+            if (event.deletionType === 'FOR_EVERYONE') {
+                // Invalidate messages cache to refetch
+                queryClient.invalidateQueries({
+                    queryKey: ['messages', selectedUser.otherUserId]
+                });
+            }
+        });
+
+        return () => {
+            if (subscription) subscription.unsubscribe();
+        };
+    }, [currentUser, selectedUser, queryClient]);
 
     const handleSend = (e) => {
         e.preventDefault();
@@ -73,6 +96,79 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, loadin
         }
     };
 
+    const handleContextMenu = (e, message) => {
+        e.preventDefault();
+        console.log('[DEBUG] Context menu triggered for message:', message.id);
+
+        // Close existing menu
+        if (contextMenu) {
+            setContextMenu(null);
+            return;
+        }
+
+        setContextMenu({
+            message,
+            position: { x: e.clientX, y: e.clientY }
+        });
+    };
+
+    const handleDeleteMessage = async (deleteType, messageId) => {
+        console.log('[DEBUG] Delete message called:', { deleteType, messageId });
+        try {
+            if (deleteType === 'FOR_ME') {
+                console.log('[DEBUG] Calling deleteMessageForMe API');
+                await chatApi.deleteMessageForMe(messageId);
+            } else if (deleteType === 'FOR_EVERYONE') {
+                console.log('[DEBUG] Calling deleteMessageForEveryone API');
+                await chatApi.deleteMessageForEveryone(messageId);
+            }
+
+            // Manually refetch messages from ChatPage state
+            console.log('[DEBUG] Refetching messages via onRefetch');
+            if (onRefetch) {
+                await onRefetch();
+            }
+
+            // Also invalidate conversations to update last message
+            queryClient.invalidateQueries({
+                queryKey: ['conversations', currentUser.userId]
+            });
+
+            console.log('[DEBUG] Delete completed successfully');
+        } catch (error) {
+            console.error('[DEBUG] Failed to delete message:', error);
+            alert(error.message || 'Failed to delete message');
+        }
+    };
+
+    const handleClearConversation = async () => {
+        console.log('[DEBUG] Clear conversation button clicked');
+        if (!window.confirm('Are you sure you want to clear this entire conversation? This will delete all messages for you.')) {
+            console.log('[DEBUG] User cancelled clear conversation');
+            return;
+        }
+
+        console.log('[DEBUG] User confirmed, clearing conversation');
+        try {
+            await chatApi.clearConversation(selectedUser.otherUserId);
+
+            // Manually refetch messages from ChatPage state
+            if (onRefetch) {
+                await onRefetch();
+            }
+
+            // Also invalidate conversations
+            queryClient.invalidateQueries({
+                queryKey: ['conversations', currentUser.userId]
+            });
+
+            console.log('[DEBUG] Clear conversation completed successfully');
+        } catch (error) {
+            console.error('[DEBUG] Failed to clear conversation:', error);
+            alert(error.message || 'Failed to clear conversation');
+        }
+    };
+
     if (!selectedUser) {
         return (
             <div className="hidden md:flex flex-1 items-center justify-center flex-col h-full bg-white">
@@ -103,26 +199,61 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, loadin
                             alt={selectedUser.otherUsername}
                             className="w-10 h-10 rounded-full object-cover ring-2 ring-rose-100"
                         />
+                        {/* Status indicator: Shows online status of USER, plus WebSocket debug dot */}
                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                        <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${webSocketService.isConnected ? 'bg-blue-500' : 'bg-red-500'}`} title={`WebSocket: ${webSocketService.isConnected ? 'Connected' : 'Disconnected'}`}></div>
                     </div>
                     <div className="ml-3">
                         <span className="font-semibold text-gray-900 text-base block">{selectedUser.otherUserFullName || selectedUser.otherUsername}</span>
-                        <span className="text-xs text-green-500">Active now</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs text-green-500">Active now</span>
+                            <span className="text-[10px] text-gray-400">
+                                {webSocketService.isConnected ? '(Live)' : '(Connecting...)'}
+                            </span>
+                        </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button className="p-2 rounded-full hover:bg-rose-100 transition-colors text-gray-500 hover:text-rose-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                    <button
+                        onClick={handleClearConversation}
+                        className="p-2 rounded-full hover:bg-rose-100 transition-colors group"
+                        title="Clear conversation"
+                    >
+                        <svg className="w-5 h-5 text-gray-500 group-hover:text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                     </button>
-                    <button className="p-2 rounded-full hover:bg-rose-100 transition-colors text-gray-500 hover:text-rose-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                    <button className="p-2 rounded-full hover:bg-rose-100 transition-colors group">
+                        <svg className="w-5 h-5 text-gray-500 group-hover:text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                    </button>
+                    <button className="p-2 rounded-full hover:bg-rose-100 transition-colors group">
+                        <svg className="w-5 h-5 text-gray-500 group-hover:text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </button>
                 </div>
             </div>
+
+            {/* Context Menu */}
+            {contextMenu && (
+                <MessageContextMenu
+                    message={contextMenu.message}
+                    position={contextMenu.position}
+                    currentUser={currentUser}
+                    onDelete={handleDeleteMessage}
+                    onClose={() => setContextMenu(null)}
+                />
+            )}
+
+            {/* Close context menu on outside click */}
+            {contextMenu && (
+                <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setContextMenu(null)}
+                />
+            )}
 
             {/* Messages Area */}
             {loading ? (
@@ -244,7 +375,7 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, loadin
                         };
 
                         return (
-                            <React.Fragment key={msg.id || index}>
+                            <React.Fragment key={`${msg.id || index}_${(msg.deleted || msg.content === "This message was deleted") ? 'del' : 'act'}`}>
                                 {/* Date Separator */}
                                 {needsDateSeparator && (
                                     <div className="flex items-center justify-center my-4">
@@ -264,9 +395,12 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, loadin
                                     )}
                                     <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>
                                         <div
-                                            className={`px-4 py-2.5 break-words text-sm md:text-base ${isOwn
-                                                ? `bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-2xl rounded-br-md shadow-sm ${isPending ? 'opacity-70' : ''} ${isFailed ? 'from-red-400 to-red-500' : ''}`
-                                                : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
+                                            onContextMenu={(e) => handleContextMenu(e, msg)}
+                                            className={`px-4 py-2.5 break-words text-sm md:text-base ${(msg.deleted || msg.content === "This message was deleted")
+                                                    ? 'animate-delete bg-gray-50 text-gray-400 italic border border-gray-200 rounded-2xl shadow-sm'
+                                                    : isOwn
+                                                        ? `bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-2xl rounded-br-md shadow-sm ${isPending ? 'opacity-70' : ''} ${isFailed ? 'from-red-400 to-red-500' : ''}`
+                                                        : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
                                                 } ${isSharedPost ? 'p-2' : ''}`}
                                         >
                                             {msg.type === 'IMAGE' ? (

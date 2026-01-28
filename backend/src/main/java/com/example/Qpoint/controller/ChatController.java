@@ -85,4 +85,43 @@ public class ChatController {
         chatService.markMessagesAsRead(user.getUserId(), otherUserId);
         return ResponseEntity.ok().build();
     }
+
+    @DeleteMapping("/messages/{messageId}/delete-for-me")
+    public ResponseEntity<Void> deleteMessageForMe(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long messageId) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).build();
+        }
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        chatService.deleteMessageForMe(user.getUserId(), messageId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/messages/{messageId}/delete-for-everyone")
+    public ResponseEntity<Void> deleteMessageForEveryone(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long messageId) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).build();
+        }
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        chatService.deleteMessageForEveryone(user.getUserId(), messageId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/conversations/{otherUserId}/clear")
+    public ResponseEntity<Void> clearConversation(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long otherUserId) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).build();
+        }
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        chatService.clearConversation(user.getUserId(), otherUserId);
+        return ResponseEntity.ok().build();
+    }
 }

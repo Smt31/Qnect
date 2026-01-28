@@ -59,17 +59,69 @@ const ChatPage = () => {
     useEffect(() => {
         if (currentUser) {
             const sub = webSocketService.subscribeToPrivateMessages(currentUser.username, (newMessage) => {
-                // Invalidate conversations cache to update list
+                console.log('[DEBUG] WebSocket message received:', newMessage);
+
+                // Always invalidate conversations cache to update list
                 queryClient.invalidateQueries(['conversations']);
 
-                // If chat is open with this sender, append message
-                if (selectedUserRef.current &&
-                    (newMessage.senderId === selectedUserRef.current.otherUserId ||
-                        newMessage.receiverId === selectedUserRef.current.otherUserId)) {
-                    setMessages(prev => [...prev, newMessage]);
+                if (selectedUserRef.current) {
+                    const currentOtherUserId = String(selectedUserRef.current.otherUserId);
+                    const msgSenderId = String(newMessage.senderId);
+                    const msgReceiverId = String(newMessage.receiverId);
+
+                    const isSender = msgSenderId === currentOtherUserId;
+                    const isReceiver = msgReceiverId === currentOtherUserId;
+
+                    console.log('[DEBUG] Checking message match:', {
+                        msgSenderId,
+                        msgReceiverId,
+                        currentOtherUserId,
+                        isSender,
+                        isReceiver,
+                        msgId: newMessage.id
+                    });
+
+                    if (isSender || isReceiver) {
+                        console.log('[DEBUG] Appending message to current chat');
+                        setMessages(prev => {
+                            // Avoid duplicates (robust check)
+                            const exists = prev.some(m => String(m.id) === String(newMessage.id));
+                            if (exists) {
+                                console.log('[DEBUG] Message matches existing ID, ignoring duplicate');
+                                return prev;
+                            }
+                            return [...prev, newMessage];
+                        });
+                    } else {
+                        console.log('[DEBUG] Message does not match current chat user');
+                    }
+                } else {
+                    console.log('[DEBUG] No selected user, not appending message');
                 }
             });
-            return () => { if (sub) sub.unsubscribe(); }
+
+            // Subscribe to deletions
+            const subDelete = webSocketService.subscribeToMessageDeleted((event) => {
+                console.log('[DEBUG] Message deleted event:', event);
+                if (event.deletionType === 'FOR_EVERYONE') {
+                    setMessages(prev => prev.map(msg =>
+                        String(msg.id) === String(event.messageId)
+                            ? {
+                                ...msg,
+                                content: "This message was deleted",
+                                type: "TEXT",
+                                attachmentUrl: null,
+                                sharedPost: null
+                            }
+                            : msg
+                    ));
+                }
+            });
+
+            return () => {
+                if (sub) sub.unsubscribe();
+                if (subDelete) subDelete.unsubscribe();
+            };
         }
     }, [currentUser, queryClient]);
 
@@ -92,6 +144,17 @@ const ChatPage = () => {
             console.error("Failed to load messages", err);
         } finally {
             setMessagesLoading(false);
+        }
+    };
+
+    // Helper to refetch current conversation's messages
+    const refetchCurrentMessages = async () => {
+        if (!selectedUser) return;
+        try {
+            const msgs = await chatApi.getMessages(selectedUser.otherUserId);
+            setMessages(msgs);
+        } catch (err) {
+            console.error("Failed to reload messages", err);
         }
     };
 
@@ -178,6 +241,7 @@ const ChatPage = () => {
                             selectedUser={selectedUser}
                             messages={messages}
                             onSendMessage={handleSendMessage}
+                            onRefetch={refetchCurrentMessages}
                             loading={messagesLoading}
                         />
                     </div>

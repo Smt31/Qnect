@@ -35,6 +35,7 @@ public class ChatDTO {
         private SharedPostDto sharedPost; // Full post details for rendering
         private Instant createdAt;
         private Boolean isRead;
+        private Boolean deleted; // For deleted messages placeholder
     }
     
     @Data
@@ -64,6 +65,17 @@ public class ChatDTO {
         private String lastMessagePreview;
         private Instant lastMessageTime;
         private long unreadCount;
+    }
+    
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    public static class MessageDeletedEvent {
+        private Long messageId;
+        private String deletionType; // FOR_ME or FOR_EVERYONE
+        private Long deletedBy;
+        private Instant deletedAt;
     }
 }
 

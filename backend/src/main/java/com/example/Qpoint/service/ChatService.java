@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -26,6 +28,7 @@ public class ChatService {
     private final AnswerRequestRepository answerRequestRepository;
     private final AnswerRepository answerRepository;
     private final PostRepository postRepository;
+    private final MessageDeletionRepository messageDeletionRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final CacheManager cacheManager; // Inject CacheManager for manual eviction
 
@@ -247,29 +250,47 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "messages", key = "T(java.lang.Math).min(#currentUserId, #otherUserId) + ':' + T(java.lang.Math).max(#currentUserId, #otherUserId)")
-    public List<ChatDTO.MessageResponse> getMessageHistory(Long currentUserId, Long otherUserId) {
-        Optional<Conversation> conv = conversationRepository.findConversationByUsers(currentUserId, otherUserId);
-        if (conv.isEmpty()) return Collections.emptyList();
+@Cacheable(value = "messages", key = "T(java.lang.Math).min(#currentUserId, #otherUserId) + ':' + T(java.lang.Math).max(#currentUserId, #otherUserId)")
+public List<ChatDTO.MessageResponse> getMessageHistory(Long currentUserId, Long otherUserId) {
+    Optional<Conversation> conv = conversationRepository.findConversationByUsers(currentUserId, otherUserId);
+    if (conv.isEmpty()) return Collections.emptyList();
 
-        List<Message> messages = messageRepository.findByConversationIdOrderByCreatedAtAsc(conv.get().getId());
+    // Use filtered query to handle deletions properly
+    List<Object[]> results = messageRepository.findMessagesWithVisibility(conv.get().getId(), currentUserId);
+    
+    return results.stream().map(row -> {
+        Message m = (Message) row[0];
+        boolean deletedForEveryone = (Boolean) row[1];
         
-        return messages.stream().map(m -> ChatDTO.MessageResponse.builder()
+        String content = m.getContent();
+        String type = m.getType().name();
+        String attachmentUrl = m.getAttachmentUrl();
+        ChatDTO.SharedPostDto sharedPost = buildSharedPostDto(m.getSharedPost());
+        
+        // If deleted for everyone, mask the content
+        if (deletedForEveryone) {
+            content = "This message was deleted";
+            type = "TEXT";
+            attachmentUrl = null;
+            sharedPost = null;
+        }
+
+        return ChatDTO.MessageResponse.builder()
                 .id(m.getId())
                 .senderId(m.getSender().getUserId())
                 .senderUsername(m.getSender().getUsername())
                 .senderAvatar(m.getSender().getAvatarUrl())
                 .receiverId(m.getReceiver().getUserId())
-                .content(m.getContent())
-                .type(m.getType().name())
-                .attachmentUrl(m.getAttachmentUrl())
-                .sharedPost(buildSharedPostDto(m.getSharedPost()))
+                .content(content)
+                .type(type)
+                .attachmentUrl(attachmentUrl)
+                .sharedPost(sharedPost)
                 .createdAt(m.getCreatedAt())
                 .isRead(m.getIsRead())
-                .build())
-                .collect(Collectors.toList());
-    }
-    
+                .deleted(deletedForEveryone)
+                .build();
+    }).collect(Collectors.toList());
+}    
     @Transactional
     public void markMessagesAsRead(Long currentUserId, Long otherUserId) {
          Optional<Conversation> conv = conversationRepository.findConversationByUsers(currentUserId, otherUserId);
@@ -291,6 +312,149 @@ public class ChatService {
                  evictMessagesCache(currentUserId, otherUserId);
              }
          }
+    }
+
+    // ================== Message Deletion Methods ==================
+    
+    @Transactional
+@CacheEvict(value = "messages", allEntries = true)
+public void deleteMessageForMe(Long userId, Long messageId) {
+        // Verify message exists
+        if (!messageRepository.existsById(messageId)) {
+            throw new RuntimeException("Message not found");
+        }
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Check if already deleted (idempotent)
+        if (messageDeletionRepository.existsByMessage_IdAndUser_UserId(messageId, userId)) {
+            return;
+        }
+        
+        // Create deletion record
+        MessageDeletion deletion = MessageDeletion.builder()
+                .message(Message.builder().id(messageId).build())
+                .user(user)
+                .deletionType(MessageDeletion.DeletionType.FOR_ME)
+                .deletedAt(LocalDateTime.now())
+                .build();
+        
+        messageDeletionRepository.save(deletion);
+        
+        // Evict messages cache for this user
+        Message msg = messageRepository.findById(messageId).orElse(null);
+        if (msg != null) {
+            evictMessagesCache(userId, msg.getSender().getUserId().equals(userId) 
+                ? msg.getReceiver().getUserId() : msg.getSender().getUserId());
+        }
+    }
+    
+    @Transactional
+@CacheEvict(value = "messages", allEntries = true)
+public void deleteMessageForEveryone(Long userId, Long messageId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
+        
+        // Verify sender owns this message (defense in depth)
+        if (!message.getSender().getUserId().equals(userId)) {
+            throw new RuntimeException("Can only delete your own messages");
+        }
+        
+        // Check time limit (15 minutes)
+        LocalDateTime fifteenMinutesAgo = LocalDateTime.now().minusMinutes(15);
+        LocalDateTime messageTime = LocalDateTime.ofInstant(
+            message.getCreatedAt(), ZoneId.systemDefault());
+            
+        if (messageTime.isBefore(fifteenMinutesAgo)) {
+            throw new RuntimeException("Can only delete messages within 15 minutes");
+        }
+        
+        // Check if already deleted for everyone
+        if (messageDeletionRepository.findGlobalDeletionByMessageId(messageId).isPresent()) {
+            return;
+        }
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Create deletion record
+        MessageDeletion deletion = MessageDeletion.builder()
+                .message(message)
+                .user(user)
+                .deletionType(MessageDeletion.DeletionType.FOR_EVERYONE)
+                .deletedAt(LocalDateTime.now())
+                .build();
+        
+        messageDeletionRepository.save(deletion);
+        
+        // Invalidate cache for BOTH users
+        Long receiverId = message.getReceiver().getUserId();
+        evictConversationCache(userId);
+        evictConversationCache(receiverId);
+        evictMessagesCache(userId, receiverId);
+        
+        // Send WebSocket notification to BOTH users (multi-device sync)
+        notifyMessageDeleted(message, userId, receiverId);
+    }
+    
+    @Transactional
+@CacheEvict(value = "messages", allEntries = true)
+public void clearConversation(Long userId, Long otherUserId) {
+        // Get all message IDs efficiently
+        List<Long> messageIds = messageRepository.findConversationMessageIds(userId, otherUserId);
+        
+        if (messageIds.isEmpty()) {
+            return;
+        }
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Batch create deletion records
+        List<MessageDeletion> deletions = messageIds.stream()
+                .filter(msgId -> !messageDeletionRepository.existsByMessage_IdAndUser_UserId(msgId, userId))
+                .map(msgId -> MessageDeletion.builder()
+                        .message(Message.builder().id(msgId).build())
+                        .user(user)
+                        .deletionType(MessageDeletion.DeletionType.FOR_ME)
+                        .deletedAt(LocalDateTime.now())
+                        .build())
+                .collect(Collectors.toList());
+        
+        // Batch insert for efficiency
+        if (!deletions.isEmpty()) {
+            messageDeletionRepository.saveAll(deletions);
+        }
+        
+        // Invalidate cache
+        evictMessagesCache(userId, otherUserId);
+        evictConversationCache(userId);
+    }
+    
+    private void notifyMessageDeleted(Message message, Long senderId, Long receiverId) {
+        ChatDTO.MessageDeletedEvent event = ChatDTO.MessageDeletedEvent.builder()
+                .messageId(message.getId())
+                .deletionType("FOR_EVERYONE")
+                .deletedBy(senderId)
+                .deletedAt(Instant.now())
+                .build();
+        
+        // Notify BOTH users for multi-device sync
+        User sender = userRepository.findById(senderId).orElseThrow();
+        User receiver = userRepository.findById(receiverId).orElseThrow();
+        
+        messagingTemplate.convertAndSendToUser(
+                sender.getUsername(),
+                "/queue/message-deleted",
+                event
+        );
+        
+        messagingTemplate.convertAndSendToUser(
+                receiver.getUsername(),
+                "/queue/message-deleted",
+                event
+        );
     }
 
     private void evictConversationCache(Long userId) {

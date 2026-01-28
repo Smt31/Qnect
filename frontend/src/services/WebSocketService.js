@@ -22,7 +22,7 @@ class WebSocketService {
         this.stompClient.debug = () => { };
 
         const token = getAuthToken();
-        
+
         this.stompClient.connect(
             { Authorization: `Bearer ${token}` },
             () => {
@@ -70,7 +70,13 @@ class WebSocketService {
 
     // Subscribe to private messages queue
     subscribeToPrivateMessages(username, callback) {
-        return this.subscribe(`/user/${username}/queue/messages`, callback);
+        // Use generic /user/queue/messages - Spring maps this to the user's unique session queue
+        return this.subscribe(`/user/queue/messages`, callback);
+    }
+
+    // Subscribe to message deletion events
+    subscribeToMessageDeleted(callback) {
+        return this.subscribe(`/user/queue/message-deleted`, callback);
     }
 }
 

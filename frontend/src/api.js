@@ -239,6 +239,9 @@ export const chatApi = {
   getMessages: (otherUserId) => get(`/api/chat/messages/${otherUserId}`, true),
   sendMessageHttp: (payload) => post('/api/chat/send', payload, true),
   markAsRead: (otherUserId) => put(`/api/chat/read/${otherUserId}`, {}, true),
+  deleteMessageForMe: (messageId) => del(`/api/chat/messages/${messageId}/delete-for-me`, true),
+  deleteMessageForEveryone: (messageId) => del(`/api/chat/messages/${messageId}/delete-for-everyone`, true),
+  clearConversation: (otherUserId) => del(`/api/chat/conversations/${otherUserId}/clear`, true),
 };
 
 export const aiApi = {
@@ -275,3 +278,4 @@ export const newsApi = {
 };
 
 export { API_URL };
+
