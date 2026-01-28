@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@stomp/stompjs": "^7.2.1",
-    "@tanstack/react-query": "^5.90.16",
+    "@tanstack/react-query": "^5.90.20",
     "highlight.js": "^11.11.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

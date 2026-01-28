@@ -1,4 +1,5 @@
 import React from 'react';
+import ConversationSkeleton from './ConversationSkeleton';
 
 // Format relative time (Just now, 2 min ago, etc.)
 const formatRelativeTime = (dateStr) => {
@@ -18,7 +19,7 @@ const formatRelativeTime = (dateStr) => {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 };
 
-const ConversationList = ({ conversations, selectedUser, onSelectUser, currentUser }) => {
+const ConversationList = ({ conversations, selectedUser, onSelectUser, currentUser, loading }) => {
     return (
         <div className="w-full h-full flex flex-col bg-white border-r border-rose-100">
             {/* Header */}
@@ -36,7 +37,9 @@ const ConversationList = ({ conversations, selectedUser, onSelectUser, currentUs
 
             {/* Conversation List */}
             <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
-                {conversations.length === 0 ? (
+                {loading ? (
+                    <ConversationSkeleton />
+                ) : conversations.length === 0 ? (
                     <div className="p-6 text-center">
                         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-rose-100 to-rose-50 flex items-center justify-center">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-rose-400">
