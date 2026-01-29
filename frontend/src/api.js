@@ -242,6 +242,24 @@ export const chatApi = {
   deleteMessageForMe: (messageId) => del(`/api/chat/messages/${messageId}/delete-for-me`, true),
   deleteMessageForEveryone: (messageId) => del(`/api/chat/messages/${messageId}/delete-for-everyone`, true),
   clearConversation: (otherUserId) => del(`/api/chat/conversations/${otherUserId}/clear`, true),
+  uploadImage: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = getAuthToken();
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_URL}/api/upload`, {
+      method: "POST",
+      headers: headers,
+      body: formData,
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+    throw new Error("Failed to upload image");
+  },
 };
 
 export const aiApi = {

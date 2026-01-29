@@ -328,7 +328,7 @@ const ChatPage = () => {
                             selectedGroup={selectedGroup}
                             messages={messages}
                             onSendMessage={handleSendMessage}
-                            onRefetch={selectedGroup ? () => handleSelectGroup(selectedGroup) : () => selectedUser && handleSelectUser(selectedUser)}
+                            onUpdateMessages={setMessages}
                             loading={messagesLoading}
                         />
                     </div>

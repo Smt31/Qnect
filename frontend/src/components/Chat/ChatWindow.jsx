@@ -7,7 +7,16 @@ import MessageContextMenu from './MessageContextMenu';
 
 import GroupDetailsModal from './GroupDetailsModal';
 
-const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSendMessage, onRefetch, loading }) => {
+// Default Avatar component with human icon
+const DefaultAvatar = ({ size = 'w-10 h-10', className = '' }) => (
+    <div className={`${size} rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center ${className}`}>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gray-400">
+            <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
+        </svg>
+    </div>
+);
+
+const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSendMessage, onUpdateMessages, loading }) => {
     const [newMessage, setNewMessage] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -44,8 +53,8 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
     // Determine target name/avatar
     const targetName = selectedGroup ? selectedGroup.name : (selectedUser?.otherUserFullName || selectedUser?.otherUsername);
     const targetAvatar = selectedGroup
-        ? (selectedGroup.avatarUrl || `https://ui-avatars.com/api/?name=${selectedGroup.name}&background=f43f5e&color=fff`)
-        : (selectedUser?.otherUserAvatar || `https://ui-avatars.com/api/?name=${selectedUser?.otherUsername}&background=f43f5e&color=fff`);
+        ? (selectedGroup.avatarUrl || null)
+        : (selectedUser?.otherUserAvatar || null);
 
     const isGroup = !!selectedGroup;
 
@@ -98,30 +107,56 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
 
     const handleDeleteMessage = async (deleteType, messageId) => {
         try {
+            // Optimistic update - mark message as deleting for animation
+            onUpdateMessages(prev => prev.map(msg =>
+                String(msg.id) === String(messageId)
+                    ? { ...msg, isDeleting: true }
+                    : msg
+            ));
+
+            // Wait for animation to play
+            await new Promise(resolve => setTimeout(resolve, 300));
+
             if (isGroup) {
                 if (deleteType === 'FOR_ME') {
                     await groupApi.deleteMessageForMe(messageId);
+                    // Remove message locally for "delete for me"
+                    onUpdateMessages(prev => prev.filter(msg => String(msg.id) !== String(messageId)));
                 } else if (deleteType === 'FOR_EVERYONE') {
                     await groupApi.deleteMessageForEveryone(messageId);
+                    // Mark as deleted for everyone (will also be updated via WebSocket)
+                    onUpdateMessages(prev => prev.map(msg =>
+                        String(msg.id) === String(messageId)
+                            ? { ...msg, content: "This message was deleted", type: 'TEXT', deleted: true, isDeleting: false }
+                            : msg
+                    ));
                 }
             } else {
                 if (deleteType === 'FOR_ME') {
                     await chatApi.deleteMessageForMe(messageId);
+                    // Remove message locally
+                    onUpdateMessages(prev => prev.filter(msg => String(msg.id) !== String(messageId)));
                 } else if (deleteType === 'FOR_EVERYONE') {
                     await chatApi.deleteMessageForEveryone(messageId);
+                    // Mark as deleted
+                    onUpdateMessages(prev => prev.map(msg =>
+                        String(msg.id) === String(messageId)
+                            ? { ...msg, content: "This message was deleted", type: 'TEXT', deleted: true, isDeleting: false }
+                            : msg
+                    ));
                 }
             }
 
-            if (onRefetch) await onRefetch();
-
-            // Invalidate queries
-            if (isGroup) {
-                // Maybe invalidate group details?
-            } else {
-                queryClient.invalidateQueries({ queryKey: ['conversations', currentUser.userId] });
-            }
+            // Invalidate conversations for unread count updates
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
         } catch (error) {
             console.error('Failed to delete message:', error);
+            // Revert optimistic update
+            onUpdateMessages(prev => prev.map(msg =>
+                String(msg.id) === String(messageId)
+                    ? { ...msg, isDeleting: false }
+                    : msg
+            ));
             alert(error.message || 'Failed to delete message');
         }
     };
@@ -175,13 +210,16 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                         onClick={() => isGroup && setShowGroupDetails(true)}
                     >
                         <div className="relative">
-                            <img
-                                src={targetAvatar}
-                                alt={targetName}
-                                className={`w-10 h-10 ${isGroup ? 'rounded-xl' : 'rounded-full'} object-cover ring-2 ring-rose-100`}
-                            />
+                            {targetAvatar ? (
+                                <img
+                                    src={targetAvatar}
+                                    alt={targetName}
+                                    className={`w-10 h-10 ${isGroup ? 'rounded-xl' : 'rounded-full'} object-cover ring-2 ring-rose-100`}
+                                />
+                            ) : (
+                                <DefaultAvatar size="w-10 h-10" className={isGroup ? 'rounded-xl' : ''} />
+                            )}
                             {!isGroup && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>}
-                            <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${webSocketService.isConnected ? 'bg-blue-500' : 'bg-red-500'}`} title={`WebSocket: ${webSocketService.isConnected ? 'Connected' : 'Disconnected'}`}></div>
                         </div>
                         <div className="ml-3">
                             <div className="flex items-center gap-1">
@@ -236,7 +274,17 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
             {loading ? (
                 <MessageSkeleton />
             ) : (
-                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3">
+                <div
+                    className="flex-1 overflow-y-auto p-4 custom-scrollbar"
+                    style={{
+                        background: 'linear-gradient(135deg, #fef7f8 0%, #fff1f2 50%, #fce7e9 100%)',
+                        backgroundAttachment: 'fixed',
+                        backgroundImage: `
+                            linear-gradient(135deg, #fef7f8 0%, #fff1f2 50%, #fce7e9 100%),
+                            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23f43f5e' fill-opacity='0.03'%3E%3Cpath opacity='.5' d='M96 95h4v1h-4v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9zm-1 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9z'/%3E%3Cpath d='M6 5V0H5v5H0v1h5v94h1V6h94V5H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")
+                        `
+                    }}
+                >
                     {messages.map((msg, index) => {
                         // Normalize senderId: DM has msg.senderId, Group has msg.sender.id
                         const msgSenderId = msg.senderId || msg.sender?.id;
@@ -250,8 +298,12 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                         const senderName = isGroup && !isOwn ? (msg.senderUsername || msg.sender?.username) : null;
                         const senderAvi = isGroup && !isOwn ? (msg.senderAvatar || msg.sender?.avatarUrl) : (selectedUser?.otherUserAvatar);
 
-                        // Date Separator Logic (Same as before)
-                        // ... omitted for brevity but keeping original logic structure ...
+                        // Determine if this is the last message from this side (to show time)
+                        const nextMsg = messages[index + 1];
+                        const nextMsgSenderId = nextMsg ? (nextMsg.senderId || nextMsg.sender?.id) : null;
+                        const isLastFromThisSide = !nextMsg || String(nextMsgSenderId) !== String(msgSenderId);
+
+                        // Date Separator Logic
                         const formatDateSeparator = (dateStr) => {
                             if (!dateStr) return '';
                             const date = new Date(dateStr);
@@ -260,6 +312,11 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                             return date.toLocaleDateString();
                         };
                         const showDateSeparator = index === 0 || (messages[index - 1] && new Date(messages[index - 1].createdAt).toDateString() !== new Date(msg.createdAt).toDateString());
+
+                        // Determine if this is the first message from this sender in consecutive group (to show name)
+                        const prevMsg = messages[index - 1];
+                        const prevMsgSenderId = prevMsg ? (prevMsg.senderId || prevMsg.sender?.id) : null;
+                        const isFirstFromThisSender = !prevMsg || String(prevMsgSenderId) !== String(msgSenderId) || showDateSeparator;
 
                         return (
                             <React.Fragment key={`${msg.id || index}_${(msg.deleted || msg.content === "This message was deleted") ? 'del' : 'act'}`}>
@@ -271,41 +328,56 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                                     </div>
                                 )}
 
-                                <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-1 group`}>
+                                <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${isLastFromThisSide ? 'mb-2' : 'mb-px'}`}>
                                     {!isOwn && (
-                                        <div className="flex flex-col items-center mr-2 self-end">
-                                            <img
-                                                src={senderAvi || `https://ui-avatars.com/api/?name=${senderName || 'User'}`}
-                                                className="w-8 h-8 rounded-full ring-1 ring-rose-100"
-                                                alt=""
-                                            />
+                                        <div className="flex flex-col items-center mr-2 self-end" style={{ width: '32px' }}>
+                                            {isLastFromThisSide ? (
+                                                senderAvi ? (
+                                                    <img
+                                                        src={senderAvi}
+                                                        className="w-8 h-8 rounded-full ring-1 ring-rose-100"
+                                                        alt=""
+                                                    />
+                                                ) : (
+                                                    <DefaultAvatar size="w-8 h-8" />
+                                                )
+                                            ) : (
+                                                <div className="w-8 h-8" /> /* Spacer for alignment */
+                                            )}
                                         </div>
                                     )}
                                     <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>
-                                        {/* Show Sender Name in Group Chat */}
-                                        {isGroup && !isOwn && (
+                                        {/* Show Sender Name in Group Chat - only for first message from this sender */}
+                                        {isGroup && !isOwn && isFirstFromThisSender && (
                                             <span className="text-[10px] text-gray-500 mb-0.5 ml-1">{senderName}</span>
                                         )}
 
-                                        <div
-                                            onContextMenu={(e) => handleContextMenu(e, msg)}
-                                            className={`px-4 py-2.5 break-words text-sm md:text-base ${(msg.deleted || msg.content === "This message was deleted")
-                                                ? 'animate-delete bg-gray-50 text-gray-400 italic border border-gray-200 rounded-2xl shadow-sm'
-                                                : isOwn
-                                                    ? `bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-2xl rounded-br-md shadow-sm ${isPending ? 'opacity-70' : ''}`
-                                                    : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
-                                                }`}
-                                        >
-                                            {msg.type === 'IMAGE' ? (
-                                                <img src={msg.attachmentUrl || msg.content} className="rounded-lg max-h-40" onClick={() => setSelectedImage(msg.attachmentUrl || msg.content)} />
-                                            ) : (
-                                                <p className="whitespace-pre-wrap">{msg.content}</p>
-                                            )}
-                                        </div>
-                                        {/* Time */}
-                                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
-                                            {isPending && <span>Sending...</span>}
-                                            {!isPending && !isFailed && <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                                        {/* Message bubble with hover group for time */}
+                                        <div className={`group/msg transition-all duration-300 ${msg.isDeleting ? 'opacity-0 scale-90 -translate-y-2' : ''}`}>
+                                            <div
+                                                onContextMenu={(e) => handleContextMenu(e, msg)}
+                                                className={`px-4 py-2 break-words text-sm md:text-base transition-all duration-300 ${(msg.deleted || msg.content === "This message was deleted")
+                                                    ? 'bg-gray-100 text-gray-400 italic rounded-2xl opacity-60 scale-95'
+                                                    : isOwn
+                                                        ? `bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-2xl rounded-br-md shadow-sm ${isPending ? 'opacity-70' : ''}`
+                                                        : 'bg-white text-gray-900 rounded-2xl rounded-bl-md shadow-sm'
+                                                    }`}
+                                            >
+                                                {msg.type === 'IMAGE' ? (
+                                                    <img src={msg.attachmentUrl || msg.content} className="rounded-lg max-h-40" onClick={() => setSelectedImage(msg.attachmentUrl || msg.content)} />
+                                                ) : (
+                                                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                                                )}
+                                            </div>
+                                            {/* Time - slides down on hover of THIS message only */}
+                                            <div
+                                                className="overflow-hidden transition-all duration-0 ease-out max-h-0 group-hover/msg:max-h-6 opacity-0 group-hover/msg:opacity-100"
+                                            >
+                                                <div className="flex items-center gap-1 mt-0.5 text-[10px] text-gray-400">
+                                                    {isPending && <span>Sending...</span>}
+                                                    {!isPending && !isFailed && <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -317,23 +389,47 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
             )}
 
             {/* Input Area */}
-            <div className="p-4 border-t border-rose-100 bg-gradient-to-r from-rose-50/50 to-white">
-                <form onSubmit={handleSend} className="flex items-center bg-white border border-rose-100 rounded-full px-4 py-2.5 shadow-sm">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="text-gray-500 mr-3 hover:text-rose-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+            <div className="p-4 border-t border-rose-100/50 bg-white/80 backdrop-blur-sm">
+                <form onSubmit={handleSend} className="flex items-center gap-3">
+                    {/* Attachment Button */}
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="flex-shrink-0 w-10 h-10 rounded-full bg-rose-50 hover:bg-rose-100 flex items-center justify-center text-rose-500 hover:text-rose-600 transition-all duration-200 disabled:opacity-50"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                         </svg>
                     </button>
                     <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                    <input
-                        type="text"
-                        placeholder={isGroup ? `Message ${targetName}...` : "Type a message..."}
-                        className="flex-1 bg-transparent border-none text-gray-900 focus:ring-0 focus:outline-none placeholder-gray-400 text-sm"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                    />
-                    <button type="submit" disabled={!newMessage.trim()} className="text-rose-500 hover:text-rose-600 disabled:text-gray-300">
-                        <svg className="w-6 h-6 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+
+                    {/* Input Container */}
+                    <div className="flex-1 flex items-center bg-gray-50 hover:bg-gray-100/80 rounded-full px-4 py-3 transition-colors duration-200 border border-gray-100">
+                        <input
+                            type="text"
+                            placeholder={isGroup ? `Message ${targetName}...` : "Type a message..."}
+                            className="flex-1 bg-transparent border-none text-gray-900 focus:ring-0 focus:outline-none placeholder-gray-400 text-sm"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                        />
+                        {/* Emoji Button */}
+                        <button type="button" className="text-gray-400 hover:text-gray-600 transition-colors mr-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Send Button */}
+                    <button
+                        type="submit"
+                        disabled={!newMessage.trim()}
+                        className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 flex items-center justify-center text-white shadow-lg shadow-rose-500/30 hover:shadow-rose-500/50 transition-all duration-200 disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none disabled:cursor-not-allowed"
+                    >
+                        <svg className="w-5 h-5 transform rotate-90 -translate-x-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                        </svg>
                     </button>
                 </form>
             </div>
@@ -350,7 +446,7 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                 onClose={() => setShowGroupDetails(false)}
                 group={selectedGroup}
                 currentUser={currentUser}
-                onUpdate={onRefetch} // To refresh member count/list in parent if needed
+                onUpdate={() => queryClient.invalidateQueries(['groups'])}
             />
         </div>
     );
