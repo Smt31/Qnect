@@ -57,6 +57,12 @@ public class UserService {
         return userRepository.existsByUsername(username);
     }
 
+    @Transactional(readOnly = true)
+    public User findByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
     @Transactional
     public User registerUser(String username, String email, String password, String fullName) {
         if (userRepository.existsByEmail(email)) {

@@ -78,6 +78,11 @@ class WebSocketService {
     subscribeToMessageDeleted(callback) {
         return this.subscribe(`/user/queue/message-deleted`, callback);
     }
+
+    // Subscribe to group chat messages
+    subscribeToGroupChat(groupId, callback) {
+        return this.subscribe(`/topic/group/${groupId}`, callback);
+    }
 }
 
 const webSocketService = new WebSocketService();

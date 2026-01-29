@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const MessageContextMenu = ({ message, position, onClose, currentUser, onDelete }) => {
+const MessageContextMenu = ({ message, position, onClose, currentUser, onDelete, isGroup, isAdmin }) => {
     const menuRef = useRef(null);
     const isOwn = message.senderId === currentUser.userId;
 
-    // Check if message can be deleted for everyone (15-minute window)
+    // Check if message can be deleted for everyone
     const canDeleteForEveryone = () => {
+        // Group Admins can delete ANY message for everyone (no time limit)
+        if (isGroup && isAdmin) return true;
+
+        // Regular users (or DM users) can only delete their own messages within 15 min
         if (!isOwn) return false;
 
         const messageTime = new Date(message.createdAt);
@@ -90,9 +94,11 @@ const MessageContextMenu = ({ message, position, onClose, currentUser, onDelete 
                         </svg>
                         <div>
                             <div>Delete for Everyone</div>
-                            <div className="text-xs text-gray-500">
-                                {Math.floor(15 - (new Date() - new Date(message.createdAt)) / (1000 * 60))} min left
-                            </div>
+                            {(!isGroup || !isAdmin) && (
+                                <div className="text-xs text-gray-500">
+                                    {Math.floor(15 - (new Date() - new Date(message.createdAt)) / (1000 * 60))} min left
+                                </div>
+                            )}
                         </div>
                     </button>
                 </>

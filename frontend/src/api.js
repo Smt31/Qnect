@@ -277,5 +277,17 @@ export const newsApi = {
   getComments: (url) => get(`/api/news/comments?url=${encodeURIComponent(url)}`, true),
 };
 
+export const groupApi = {
+  createGroup: (groupData) => post('/api/groups', groupData, true),
+  getGroupDetails: (groupId) => get(`/api/groups/${groupId}`, true),
+  getMyGroups: () => get('/api/groups/my', true),
+  addMembers: (groupId, userIds) => post(`/api/groups/${groupId}/members`, { userIds }, true),
+  removeMember: (groupId, targetUserId) => del(`/api/groups/${groupId}/members/${targetUserId}`, true),
+  leaveGroup: (groupId) => post(`/api/groups/${groupId}/leave`, {}, true),
+  getMessages: (groupId, page = 0, size = 50) => get(`/api/groups/${groupId}/messages?page=${page}&size=${size}`, true),
+  deleteMessageForMe: (messageId) => del(`/api/groups/messages/${messageId}/me`, true),
+  deleteMessageForEveryone: (messageId) => del(`/api/groups/messages/${messageId}/everyone`, true),
+};
+
 export { API_URL };
 

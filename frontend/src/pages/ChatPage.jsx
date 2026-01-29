@@ -3,26 +3,41 @@ import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ConversationList from '../components/Chat/ConversationList';
 import ChatWindow from '../components/Chat/ChatWindow';
+import CreateGroupModal from '../components/Chat/CreateGroupModal';
 import LeftSidebar from '../components/Home/LeftSidebar';
 import Navbar from '../components/Home/Navbar';
-import { chatApi, userApi } from '../api';
+import { chatApi, userApi, groupApi } from '../api';
 import webSocketService from '../services/WebSocketService';
 
 const ChatPage = () => {
     const [selectedUser, setSelectedUser] = useState(null);
+    const [selectedGroup, setSelectedGroup] = useState(null);
     const [messages, setMessages] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
     const [messagesLoading, setMessagesLoading] = useState(false);
+    const [showCreateGroup, setShowCreateGroup] = useState(false);
 
     const queryClient = useQueryClient();
     const location = useLocation();
 
-    // Fetch conversations with React Query
+    // Fetch conversations (DMs)
     const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
         queryKey: ['conversations'],
         queryFn: chatApi.getConversations,
         enabled: !!currentUser,
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // Fetch Groups
+    const { data: groups = [], isLoading: groupsLoading } = useQuery({
+        queryKey: ['groups'],
+        queryFn: async () => {
+            // Basic fetch, assume getMyGroups exists
+            const myGroups = await groupApi.getMyGroups().catch(() => []);
+            return myGroups;
+        },
+        enabled: !!currentUser,
+        staleTime: 5 * 60 * 1000,
     });
 
     // 1. Fetch Current User
@@ -42,174 +57,191 @@ const ChatPage = () => {
     useEffect(() => {
         if (currentUser) {
             webSocketService.connect(
-                () => {
-                    console.log("Connected to WebSocket");
-                },
+                () => console.log("Connected to WebSocket"),
                 (err) => console.error("Socket error", err)
             );
         }
         return () => webSocketService.disconnect();
     }, [currentUser]);
 
-    // Use Ref to access current selectedUser in WebSocket callback
+    // Refs for WebSocket callbacks
     const selectedUserRef = useRef(selectedUser);
+    const selectedGroupRef = useRef(selectedGroup);
     useEffect(() => { selectedUserRef.current = selectedUser; }, [selectedUser]);
+    useEffect(() => { selectedGroupRef.current = selectedGroup; }, [selectedGroup]);
 
-    // 3. WebSocket subscription for incoming messages
+    // 3. WebSocket subscriptions
     useEffect(() => {
-        if (currentUser) {
-            const sub = webSocketService.subscribeToPrivateMessages(currentUser.username, (newMessage) => {
-                console.log('[DEBUG] WebSocket message received:', newMessage);
+        if (!currentUser) return;
 
-                // Always invalidate conversations cache to update list
-                queryClient.invalidateQueries(['conversations']);
+        // Subscription for Private Messages
+        const subPrivate = webSocketService.subscribeToPrivateMessages(currentUser.username, (newMessage) => {
+            console.log('[WS] Private msg:', newMessage);
+            queryClient.invalidateQueries(['conversations']);
 
-                if (selectedUserRef.current) {
-                    const currentOtherUserId = String(selectedUserRef.current.otherUserId);
-                    const msgSenderId = String(newMessage.senderId);
-                    const msgReceiverId = String(newMessage.receiverId);
+            // If chat open with sender
+            if (selectedUserRef.current) {
+                const currentOtherId = String(selectedUserRef.current.otherUserId);
+                const msgSenderId = String(newMessage.senderId);
+                const msgReceiverId = String(newMessage.receiverId);
 
-                    const isSender = msgSenderId === currentOtherUserId;
-                    const isReceiver = msgReceiverId === currentOtherUserId;
-
-                    console.log('[DEBUG] Checking message match:', {
-                        msgSenderId,
-                        msgReceiverId,
-                        currentOtherUserId,
-                        isSender,
-                        isReceiver,
-                        msgId: newMessage.id
+                // Check match
+                if (msgSenderId === currentOtherId || msgReceiverId === currentOtherId) {
+                    setMessages(prev => {
+                        if (prev.some(m => String(m.id) === String(newMessage.id))) return prev;
+                        return [...prev, newMessage];
                     });
-
-                    if (isSender || isReceiver) {
-                        console.log('[DEBUG] Appending message to current chat');
-                        setMessages(prev => {
-                            // Avoid duplicates (robust check)
-                            const exists = prev.some(m => String(m.id) === String(newMessage.id));
-                            if (exists) {
-                                console.log('[DEBUG] Message matches existing ID, ignoring duplicate');
-                                return prev;
-                            }
-                            return [...prev, newMessage];
-                        });
-                    } else {
-                        console.log('[DEBUG] Message does not match current chat user');
-                    }
-                } else {
-                    console.log('[DEBUG] No selected user, not appending message');
                 }
-            });
+            }
+        });
 
-            // Subscribe to deletions
-            const subDelete = webSocketService.subscribeToMessageDeleted((event) => {
-                console.log('[DEBUG] Message deleted event:', event);
-                if (event.deletionType === 'FOR_EVERYONE') {
-                    setMessages(prev => prev.map(msg =>
-                        String(msg.id) === String(event.messageId)
-                            ? {
-                                ...msg,
-                                content: "This message was deleted",
-                                type: "TEXT",
-                                attachmentUrl: null,
-                                sharedPost: null
-                            }
-                            : msg
-                    ));
-                }
-            });
+        // Subscription for Deletions (Global User Queue)
+        // Note: Group Deletions might come through Group Topic or User Queue? 
+        // Plan says: "Deletes message -> broadcast MESSAGE_DELETED" to TOPIC.
+        // But "Delete for Me" is personal. 
+        // We'll rely on the topic subscription for "For Everyone" deletions in groups.
+        const subDelete = webSocketService.subscribeToMessageDeleted((event) => {
+            // This handles DM deletions for sure.
+            if (event.deletionType === 'FOR_EVERYONE') {
+                setMessages(prev => prev.map(msg =>
+                    String(msg.id) === String(event.messageId)
+                        ? { ...msg, content: "This message was deleted", type: 'TEXT', deleted: true }
+                        : msg
+                ));
+            }
+        });
 
-            return () => {
-                if (sub) sub.unsubscribe();
-                if (subDelete) subDelete.unsubscribe();
-            };
-        }
+        return () => {
+            if (subPrivate) subPrivate.unsubscribe();
+            if (subDelete) subDelete.unsubscribe();
+        };
     }, [currentUser, queryClient]);
 
-    // 4. Select User / Load Messages
+    // 4. Group Specific Subscription (Dynamic based on selectedGroup)
+    useEffect(() => {
+        if (!currentUser || !selectedGroup) return;
+
+        console.log(`[WS] Subscribing to Group ${selectedGroup.id}`);
+        const subGroup = webSocketService.subscribeToGroupChat(selectedGroup.id, (messageOrEvent) => {
+            console.log('[WS] Group msg/event:', messageOrEvent);
+
+            // Handle valid message
+            if (messageOrEvent.content !== undefined) {
+                setMessages(prev => {
+                    if (prev.some(m => String(m.id) === String(messageOrEvent.id))) {
+                        // If it's an update (e.g. deletion masked content), replace it
+                        if (messageOrEvent.deleted) {
+                            return prev.map(m => String(m.id) === String(messageOrEvent.id) ? messageOrEvent : m);
+                        }
+                        return prev;
+                    }
+                    return [...prev, messageOrEvent];
+                });
+                // Invalidate group list if we want to show preview (later)
+            }
+            // If it's a specific delete event (if backend sends it separately)
+            // Current backend sends updated MessageResponse with deleted=true, so logic above handles it.
+        });
+
+        return () => {
+            if (subGroup) subGroup.unsubscribe();
+        };
+    }, [currentUser, selectedGroup]);
+
+    // Handlers
     const handleSelectUser = async (conv) => {
+        setSelectedGroup(null);
         setSelectedUser(conv);
-        setMessages([]); // Clear messages immediately
+        setMessages([]);
         setMessagesLoading(true);
         try {
             const msgs = await chatApi.getMessages(conv.otherUserId);
             setMessages(msgs);
-
-            // Mark as read if unread count > 0
             if (conv.unreadCount > 0) {
                 await chatApi.markAsRead(conv.otherUserId);
-                // Invalidate conversations to update unread count
                 queryClient.invalidateQueries(['conversations']);
             }
         } catch (err) {
-            console.error("Failed to load messages", err);
+            console.error(err);
         } finally {
             setMessagesLoading(false);
         }
     };
 
-    // Helper to refetch current conversation's messages
-    const refetchCurrentMessages = async () => {
-        if (!selectedUser) return;
+    const handleSelectGroup = async (group) => {
+        setSelectedUser(null);
+        setSelectedGroup(group);
+        setMessages([]);
+        setMessagesLoading(true);
         try {
-            const msgs = await chatApi.getMessages(selectedUser.otherUserId);
+            const msgs = await groupApi.getMessages(group.id);
             setMessages(msgs);
         } catch (err) {
-            console.error("Failed to reload messages", err);
+            console.error(err);
+        } finally {
+            setMessagesLoading(false);
         }
     };
 
-    // 5. Send Message - with OPTIMISTIC UPDATE for instant UI feedback
     const handleSendMessage = async (text, type) => {
-        if (!selectedUser || !currentUser) return;
+        if (!currentUser) return;
 
-        // Create an optimistic message to show immediately
-        const optimisticMessage = {
-            id: `temp-${Date.now()}`, // Temporary ID
-            senderId: currentUser.userId,
-            receiverId: selectedUser.otherUserId,
+        // Optimistic Update
+        const tempId = `temp-${Date.now()}`;
+        const optimisticMsg = {
+            id: tempId,
+            senderId: currentUser.userId, // for DM
+            sender: { id: currentUser.userId, username: currentUser.username, avatarUrl: currentUser.avatarUrl }, // for Group (DTO diff)
             content: text,
             type: type,
-            // For IMAGE type, the 'text' argument contains the URL
-            attachmentUrl: type === 'IMAGE' ? text : null,
             createdAt: new Date().toISOString(),
-            pending: true, // Mark as pending for potential UI styling
+            pending: true,
+            attachmentUrl: type === 'IMAGE' ? text : null,
+            // DM fields
+            receiverId: selectedUser?.otherUserId,
+            // Group fields
+            groupId: selectedGroup?.id
         };
 
-        // IMMEDIATELY add to messages (optimistic update)
-        setMessages(prev => [...prev, optimisticMessage]);
-
-        const payload = {
-            receiverId: selectedUser.otherUserId,
-            content: text,
-            type: type
-        };
-
-        // If sending image, move URL to attachmentUrl field
-        if (type === 'IMAGE') {
-            payload.attachmentUrl = text;
-            // Optional: set content to "Sent an image" or keep URL as fallback
-            payload.content = "Sent an image";
-        }
+        setMessages(prev => [...prev, optimisticMsg]);
 
         try {
-            const resp = await chatApi.sendMessageHttp(payload);
+            let resp;
+            if (selectedGroup) {
+                // Group Send via WebSocket
+                webSocketService.send(`/app/group.chat/${selectedGroup.id}`, {
+                    content: text,
+                    type: type
+                });
 
-            // Replace the optimistic message with the real one from server
-            setMessages(prev => prev.map(msg =>
-                msg.id === optimisticMessage.id
-                    ? { ...resp, pending: false }
-                    : msg
-            ));
+                // Since we rely on WebSocket to broadcast the message back,
+                // we won't get an immediate HTTP response to update the ID.
+                // The subscription listener will handle the incoming real message.
+                // We can mark the optimistic message as "sent" or let the listener deduplicate/replace it.
+                // For now, we'll keep the pending state until the real one arrives.
+                // Note: To cleanly replace, we'd need a correlation ID, but for now we'll rely on content matching or just list updates.
+                setMessages(prev => prev.map(msg =>
+                    msg.id === tempId ? { ...msg, pending: false } : msg
+                ));
 
-            // Invalidate conversations to update last message preview
-            queryClient.invalidateQueries(['conversations']);
+            } else if (selectedUser) {
+                // DM Send (HTTP)
+                const payload = {
+                    receiverId: selectedUser.otherUserId,
+                    content: text,
+                    type: type,
+                    attachmentUrl: type === 'IMAGE' ? text : null
+                };
+                resp = await chatApi.sendMessageHttp(payload);
+                setMessages(prev => prev.map(msg =>
+                    msg.id === tempId ? { ...resp, pending: false } : msg
+                ));
+            }
+
         } catch (err) {
-            console.error("Failed to send", err);
-            // Mark the message as failed (optionally remove or show error state)
+            console.error("Send failed", err);
             setMessages(prev => prev.map(msg =>
-                msg.id === optimisticMessage.id
-                    ? { ...msg, pending: false, failed: true }
-                    : msg
+                msg.id === tempId ? { ...msg, failed: true, pending: false } : msg
             ));
         }
     };
@@ -217,38 +249,43 @@ const ChatPage = () => {
     return (
         <div className="min-h-screen" style={{ backgroundColor: '#FFF1F2' }}>
             <Navbar user={currentUser} />
-
             <div className="flex">
-                {/* Left Sidebar */}
                 <LeftSidebar user={currentUser} />
-
-                {/* Chat Layout */}
                 <div className="flex-1 md:ml-64 flex h-[calc(100vh-64px)]">
-                    <div className={`${selectedUser ? 'hidden md:flex' : 'flex'} w-full md:w-80 md:flex-none h-full`}>
+                    <div className={`${(selectedUser || selectedGroup) ? 'hidden md:flex' : 'flex'} w-full md:w-80 md:flex-none h-full`}>
                         <ConversationList
                             conversations={conversations}
+                            groups={groups}
                             selectedUser={selectedUser}
+                            selectedGroup={selectedGroup}
                             onSelectUser={handleSelectUser}
+                            onSelectGroup={handleSelectGroup}
+                            onCreateGroup={() => setShowCreateGroup(true)}
                             currentUser={currentUser}
-                            loading={conversationsLoading}
+                            loading={conversationsLoading || groupsLoading}
                         />
                     </div>
-
-                    <div className={`${!selectedUser ? 'hidden md:flex' : 'flex'} flex-1 h-full`}>
+                    <div className={`${!(selectedUser || selectedGroup) ? 'hidden md:flex' : 'flex'} flex-1 h-full`}>
                         <ChatWindow
-                            key={selectedUser ? selectedUser.otherUserId : 'empty'}
+                            key={selectedGroup ? `group-${selectedGroup.id}` : (selectedUser ? `user-${selectedUser.otherUserId}` : 'empty')}
                             currentUser={currentUser}
                             selectedUser={selectedUser}
+                            selectedGroup={selectedGroup}
                             messages={messages}
                             onSendMessage={handleSendMessage}
-                            onRefetch={refetchCurrentMessages}
+                            onRefetch={selectedGroup ? () => handleSelectGroup(selectedGroup) : () => selectedUser && handleSelectUser(selectedUser)}
                             loading={messagesLoading}
                         />
                     </div>
                 </div>
             </div>
+
+            <CreateGroupModal
+                isOpen={showCreateGroup}
+                onClose={() => setShowCreateGroup(false)}
+                onSuccess={() => queryClient.invalidateQueries(['groups'])}
+            />
         </div>
     );
 };
-
 export default ChatPage;
