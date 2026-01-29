@@ -13,6 +13,7 @@ const GroupDetailsModal = ({ isOpen, onClose, group, currentUser, onUpdate }) =>
     const [editName, setEditName] = useState('');
     const [editDescription, setEditDescription] = useState('');
     const [editAvatarUrl, setEditAvatarUrl] = useState('');
+    const [editIsPrivate, setEditIsPrivate] = useState(true);
 
     const [suggestions, setSuggestions] = useState([]);
 
@@ -27,6 +28,7 @@ const GroupDetailsModal = ({ isOpen, onClose, group, currentUser, onUpdate }) =>
             setEditName(group.name || '');
             setEditDescription(group.description || '');
             setEditAvatarUrl(group.avatarUrl || '');
+            setEditIsPrivate(group.private !== undefined ? group.private : true);
         }
     }, [isOpen, group]);
 
@@ -177,7 +179,8 @@ const GroupDetailsModal = ({ isOpen, onClose, group, currentUser, onUpdate }) =>
             await groupApi.updateGroup(group.id, {
                 name: editName,
                 description: editDescription,
-                avatarUrl: editAvatarUrl
+                avatarUrl: editAvatarUrl,
+                isPrivate: editIsPrivate
             });
             if (onUpdate) onUpdate();
             alert("Group updated successfully!");
@@ -315,6 +318,21 @@ const GroupDetailsModal = ({ isOpen, onClose, group, currentUser, onUpdate }) =>
                                         <p className="text-xs text-gray-400 mt-1">Upload an image or paste a URL</p>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Visibility Toggle */}
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
+                                    <p className="font-medium text-gray-800 text-sm">Public Group</p>
+                                    <p className="text-xs text-gray-500">Anyone can discover and join</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setEditIsPrivate(!editIsPrivate)}
+                                    className={`relative w-11 h-6 rounded-full transition-colors ${!editIsPrivate ? 'bg-rose-500' : 'bg-gray-300'}`}
+                                >
+                                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${!editIsPrivate ? 'translate-x-5' : ''}`} />
+                                </button>
                             </div>
 
                             <div className="pt-4 flex gap-3">

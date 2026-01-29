@@ -5,22 +5,27 @@ const CreateGroupModal = ({ isOpen, onClose, onSuccess }) => {
     const [step, setStep] = useState(1);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
+    const [isPrivate, setIsPrivate] = useState(true);
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+    const [avatarUrl, setAvatarUrl] = useState('');
     const [uploading, setUploading] = useState(false);
 
     // Member selection
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [selectedUsers, setSelectedUsers] = useState([]);
+    const [suggestions, setSuggestions] = useState([]);
 
     useEffect(() => {
         if (isOpen) {
             setStep(1);
             setName('');
             setDescription('');
+            setIsPrivate(true);
             setImageFile(null);
             setImagePreview(null);
+            setAvatarUrl('');
             setSelectedUsers([]);
             setSearchQuery('');
         }
@@ -39,6 +44,18 @@ const CreateGroupModal = ({ isOpen, onClose, onSuccess }) => {
         }, 300);
         return () => clearTimeout(timer);
     }, [searchQuery]);
+
+    // Load suggestions when on step 2
+    useEffect(() => {
+        if (step === 2) {
+            userApi.getUserSuggestions().then(data => {
+                const users = data.users || [];
+                // Filter out already selected users
+                const selectedIds = new Set(selectedUsers.map(u => u.userId));
+                setSuggestions(users.filter(u => !selectedIds.has(u.userId)));
+            }).catch(err => console.error('Failed to load suggestions:', err));
+        }
+    }, [step]);
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
@@ -59,17 +76,18 @@ const CreateGroupModal = ({ isOpen, onClose, onSuccess }) => {
     const handleSubmit = async () => {
         setUploading(true);
         try {
-            let avatarUrl = null;
+            let finalAvatarUrl = avatarUrl.trim() || null;
             if (imageFile) {
                 const uploadRes = await questionApi.uploadImage(imageFile);
-                avatarUrl = uploadRes.url;
+                finalAvatarUrl = uploadRes.url;
             }
 
             const payload = {
                 name,
                 description,
-                avatarUrl,
-                memberIds: selectedUsers.map(u => u.userId)
+                avatarUrl: finalAvatarUrl,
+                memberIds: selectedUsers.map(u => u.userId),
+                isPrivate
             };
 
             await groupApi.createGroup(payload);
@@ -122,6 +140,21 @@ const CreateGroupModal = ({ isOpen, onClose, onSuccess }) => {
                             </label>
                         </div>
 
+                        {/* Avatar URL Input */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Or paste image URL</label>
+                            <input
+                                type="text"
+                                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-rose-200 focus:border-rose-500 outline-none text-sm"
+                                value={avatarUrl}
+                                onChange={(e) => {
+                                    setAvatarUrl(e.target.value);
+                                    if (e.target.value) setImagePreview(e.target.value);
+                                }}
+                                placeholder="https://example.com/image.png"
+                            />
+                        </div>
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Group Name</label>
                             <input
@@ -142,6 +175,21 @@ const CreateGroupModal = ({ isOpen, onClose, onSuccess }) => {
                                 onChange={(e) => setDescription(e.target.value)}
                                 placeholder="What's this group about?"
                             />
+                        </div>
+
+                        {/* Public/Private Toggle */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                            <div>
+                                <p className="font-medium text-gray-800">Public Group</p>
+                                <p className="text-sm text-gray-500">Anyone can discover and join this group</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsPrivate(!isPrivate)}
+                                className={`relative w-12 h-6 rounded-full transition-colors ${!isPrivate ? 'bg-rose-500' : 'bg-gray-300'}`}
+                            >
+                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${!isPrivate ? 'translate-x-6' : ''}`} />
+                            </button>
                         </div>
                     </div>
                 ) : (
@@ -167,7 +215,12 @@ const CreateGroupModal = ({ isOpen, onClose, onSuccess }) => {
                         )}
 
                         <div className="h-60 overflow-y-auto custom-scrollbar border-t border-gray-100 pt-2 space-y-2">
-                            {searchResults.map(user => {
+                            {/* Header for list */}
+                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+                                {searchQuery ? 'Search Results' : 'Suggested'}
+                            </h4>
+
+                            {(searchQuery ? searchResults : suggestions).map(user => {
                                 const isSelected = selectedUsers.find(u => u.userId === user.userId);
                                 return (
                                     <div key={user.userId}
@@ -184,8 +237,11 @@ const CreateGroupModal = ({ isOpen, onClose, onSuccess }) => {
                                     </div>
                                 );
                             })}
-                            {searchResults.length === 0 && searchQuery && (
+                            {searchQuery && searchResults.length === 0 && (
                                 <p className="text-center text-gray-400 text-sm py-4">No users found</p>
+                            )}
+                            {!searchQuery && suggestions.length === 0 && (
+                                <p className="text-center text-gray-400 text-sm py-4">No suggestions available</p>
                             )}
                         </div>
                     </div>
@@ -210,8 +266,8 @@ const CreateGroupModal = ({ isOpen, onClose, onSuccess }) => {
                         }}
                         disabled={step === 1 && !name.trim() || uploading}
                         className={`px-6 py-2 rounded-lg font-medium text-white transition-all ${(step === 1 && !name.trim()) || uploading
-                                ? 'bg-gray-300 cursor-not-allowed'
-                                : 'bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-500/30'
+                            ? 'bg-gray-300 cursor-not-allowed'
+                            : 'bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-500/30'
                             }`}
                     >
                         {uploading ? 'Creating...' : step === 1 ? 'Next: Add Members' : 'Create Group'}

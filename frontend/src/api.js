@@ -309,6 +309,8 @@ export const groupApi = {
   getMessages: (groupId, page = 0, size = 50) => get(`/api/groups/${groupId}/messages?page=${page}&size=${size}`, true),
   deleteMessageForMe: (messageId) => del(`/api/groups/messages/${messageId}/me`, true),
   deleteMessageForEveryone: (messageId) => del(`/api/groups/messages/${messageId}/everyone`, true),
+  getPublicGroups: () => get('/api/groups/public', true),
+  joinGroup: (groupId) => post(`/api/groups/${groupId}/join`, {}, true),
 };
 
 export { API_URL };

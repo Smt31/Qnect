@@ -498,17 +498,7 @@ export default function HomePage() {
             </div>
 
             <div className="p-6">
-              {/* Question Tips - Only for Question Tab */}
-              {activeCreateTab === 'QUESTION' && (
-                <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-6">
-                  <h4 className="text-red-800 font-bold text-sm mb-2">Tips on getting good answers quickly</h4>
-                  <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
-                    <li>Make sure your question has not been asked already</li>
-                    <li>Keep your question short and to the point</li>
-                    <li>Double-check grammar and spelling</li>
-                  </ul>
-                </div>
-              )}
+              {/* Question Tips - Removed */}
 
               {/* User Context */}
               {/* User Context */}

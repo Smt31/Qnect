@@ -39,7 +39,7 @@ public class GroupService {
                 .description(request.getDescription())
                 .avatarUrl(request.getAvatarUrl())
                 .createdBy(creator)
-                .isPrivate(false)
+                .isPrivate(request.isPrivate())
                 .build();
         
         group = groupRepository.save(group);
@@ -214,6 +214,9 @@ public class GroupService {
         if (request.getAvatarUrl() != null) {
             group.setAvatarUrl(request.getAvatarUrl());
         }
+        if (request.getIsPrivate() != null) {
+            group.setPrivate(request.getIsPrivate());
+        }
 
         groupRepository.save(group);
         log.info("User {} updated group {}", currentUserId, groupId);
@@ -246,6 +249,42 @@ public class GroupService {
         return memberships.stream()
                 .map(gm -> mapToResponse(gm.getGroup(), userId))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<GroupDTO.GroupResponse> getPublicGroups(Long currentUserId) {
+        return groupRepository.findByIsPrivateFalseOrderByCreatedAtDesc().stream()
+                .map(g -> mapToResponse(g, currentUserId))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public GroupDTO.GroupResponse joinPublicGroup(Long groupId, Long userId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Group not found"));
+        
+        if (group.isPrivate()) {
+            throw new RuntimeException("Cannot join a private group without invitation");
+        }
+        
+        // Check if already a member
+        Optional<GroupMember> existing = groupMemberRepository.findByGroupIdAndUserId(groupId, userId);
+        if (existing.isPresent()) {
+            GroupMember member = existing.get();
+            if (member.getLeftAt() == null) {
+                throw new RuntimeException("You are already a member of this group");
+            }
+            // Rejoin
+            member.setLeftAt(null);
+            member.setJoinedAt(LocalDateTime.now());
+            groupMemberRepository.save(member);
+        } else {
+            User user = userRepository.findById(userId).orElseThrow();
+            addMemberInternal(group, user, GroupMember.Role.MEMBER);
+        }
+        
+        log.info("User {} joined public group {}", userId, groupId);
+        return mapToResponse(group, userId);
     }
 
     // Mapping Helper

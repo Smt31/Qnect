@@ -10,5 +10,8 @@ import java.util.List;
 public interface GroupRepository extends JpaRepository<Group, Long> {
     List<Group> findByCreatedByUserId(Long userId);
     
-    // Future: findByNameContaining for search
+    // Public groups discovery
+    List<Group> findByIsPrivateFalseOrderByCreatedAtDesc();
+    
+    List<Group> findByIsPrivateFalseAndNameContainingIgnoreCase(String query);
 }

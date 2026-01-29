@@ -52,6 +52,35 @@ const ChatPage = () => {
         }
     }, [groups, selectedGroup]);
 
+    // Handle navigation state (e.g., from sidebar "Open" button)
+    useEffect(() => {
+        if (location.state?.selectedGroupId && groups.length > 0) {
+            const targetGroup = groups.find(g => g.id === location.state.selectedGroupId);
+            if (targetGroup) {
+                setSelectedUser(null);
+                setSelectedGroup(targetGroup);
+                // Clear the state to prevent re-selection on subsequent renders
+                window.history.replaceState({}, document.title);
+            }
+        }
+    }, [location.state, groups]);
+
+    // Handle selectGroup event from sidebar (when already on chat page)
+    useEffect(() => {
+        const handleSelectGroup = (e) => {
+            const groupId = e.detail?.groupId;
+            if (groupId && groups.length > 0) {
+                const targetGroup = groups.find(g => g.id === groupId);
+                if (targetGroup) {
+                    setSelectedUser(null);
+                    setSelectedGroup(targetGroup);
+                }
+            }
+        };
+        window.addEventListener('selectGroup', handleSelectGroup);
+        return () => window.removeEventListener('selectGroup', handleSelectGroup);
+    }, [groups]);
+
     // 1. Fetch Current User
     useEffect(() => {
         const fetchUser = async () => {

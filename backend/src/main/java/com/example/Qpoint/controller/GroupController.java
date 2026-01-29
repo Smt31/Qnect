@@ -99,6 +99,25 @@ public class GroupController {
         return ResponseEntity.ok(groupService.getMyGroups(user.getUserId()));
     }
 
+    @GetMapping("/public")
+    public ResponseEntity<List<GroupDTO.GroupResponse>> getPublicGroups(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = null;
+        if (userDetails != null) {
+            User user = userService.findByUsername(userDetails.getUsername());
+            userId = user.getUserId();
+        }
+        return ResponseEntity.ok(groupService.getPublicGroups(userId));
+    }
+
+    @PostMapping("/{groupId}/join")
+    public ResponseEntity<GroupDTO.GroupResponse> joinGroup(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long groupId) {
+        User user = userService.findByUsername(userDetails.getUsername());
+        return ResponseEntity.ok(groupService.joinPublicGroup(groupId, user.getUserId()));
+    }
+
     @PutMapping("/{groupId}")
     public ResponseEntity<GroupDTO.GroupResponse> updateGroup(
             @AuthenticationPrincipal UserDetails userDetails,

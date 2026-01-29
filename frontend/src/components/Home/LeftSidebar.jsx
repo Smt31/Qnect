@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMobileSidebar } from '../../context/MobileSidebarContext';
+import { groupApi } from '../../api';
 
 export default function LeftSidebar({ user, onAskQuestion }) {
     const navigate = useNavigate();
@@ -9,6 +10,8 @@ export default function LeftSidebar({ user, onAskQuestion }) {
     const [myPostsOpen, setMyPostsOpen] = useState(
         location.pathname.startsWith('/my-questions') || location.pathname.startsWith('/my-posts')
     );
+    const [publicGroups, setPublicGroups] = useState([]);
+    const [joiningGroupId, setJoiningGroupId] = useState(null);
 
     // Close sidebar on route change (mobile)
     useEffect(() => {
@@ -27,12 +30,47 @@ export default function LeftSidebar({ user, onAskQuestion }) {
         };
     }, [isOpen]);
 
+    // Fetch public groups (show all as topic channels)
+    useEffect(() => {
+        groupApi.getPublicGroups().then(data => {
+            setPublicGroups((data || []).slice(0, 3));
+        }).catch(err => console.error('Failed to load public groups:', err));
+    }, []);
+
     const isActive = (path) => location.pathname === path;
     const isMyPostsActive = location.pathname.startsWith('/my-questions') || location.pathname.startsWith('/my-posts');
 
     const handleNavigate = (path) => {
         navigate(path);
         close();
+    };
+
+    const handleJoinGroup = async (groupId) => {
+        setJoiningGroupId(groupId);
+        try {
+            await groupApi.joinGroup(groupId);
+            // Update local state to show as member
+            setPublicGroups(prev => prev.map(g =>
+                g.id === groupId ? { ...g, member: true } : g
+            ));
+            // Navigate to chat page
+            navigate('/chat');
+        } catch (err) {
+            console.error('Failed to join group:', err);
+            alert(err.message || 'Failed to join group');
+        } finally {
+            setJoiningGroupId(null);
+        }
+    };
+
+    const handleOpenGroup = (groupId) => {
+        // If already on chat page, dispatch event to select group without navigation
+        if (location.pathname === '/chat') {
+            window.dispatchEvent(new CustomEvent('selectGroup', { detail: { groupId } }));
+        } else {
+            // Navigate to chat and the specific group will be selected
+            navigate('/chat', { state: { selectedGroupId: groupId } });
+        }
     };
 
     const sidebarContent = (
@@ -166,6 +204,40 @@ export default function LeftSidebar({ user, onAskQuestion }) {
                     <span>Live News</span>
                     <span className="ml-auto px-2 py-0.5 bg-red-100 text-red-600 text-xs font-medium rounded-full">New</span>
                 </button>
+            </div>
+
+            {/* Public Groups Section */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+                <h4 className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Public Groups</h4>
+                {publicGroups.length > 0 ? (
+                    <div className="space-y-2">
+                        {publicGroups.map(group => (
+                            <div key={group.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                <img
+                                    src={group.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(group.name)}&background=f43f5e&color=fff`}
+                                    className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                                    alt=""
+                                />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">{group.name}</p>
+                                    <p className="text-xs text-gray-500">{group.members?.length || 0} members</p>
+                                </div>
+                                <button
+                                    onClick={() => group.member ? handleOpenGroup(group.id) : handleJoinGroup(group.id)}
+                                    disabled={joiningGroupId === group.id}
+                                    className={`px-3 py-1 text-xs font-medium rounded-full transition-colors disabled:opacity-50 ${group.member
+                                        ? 'text-gray-600 bg-gray-100 hover:bg-gray-200'
+                                        : 'text-rose-600 bg-rose-50 hover:bg-rose-100'
+                                        }`}
+                                >
+                                    {joiningGroupId === group.id ? '...' : (group.member ? 'Open' : 'Join')}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="px-3 text-xs text-gray-400">No public groups to join</p>
+                )}
             </div>
         </div>
     );

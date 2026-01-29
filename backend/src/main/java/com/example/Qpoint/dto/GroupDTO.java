@@ -19,6 +19,7 @@ public class GroupDTO {
         private String description;
         private String avatarUrl;
         private List<Long> memberIds; // Initial members (optional)
+        private boolean isPrivate; // true = private, false = public
     }
 
     @Data
@@ -65,5 +66,6 @@ public class GroupDTO {
         private String name;
         private String description;
         private String avatarUrl;
+        private Boolean isPrivate; // null = no change
     }
 }
