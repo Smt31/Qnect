@@ -5,11 +5,14 @@ import webSocketService from '../../services/WebSocketService';
 import MessageSkeleton from './MessageSkeleton';
 import MessageContextMenu from './MessageContextMenu';
 
+import GroupDetailsModal from './GroupDetailsModal';
+
 const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSendMessage, onRefetch, loading }) => {
     const [newMessage, setNewMessage] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const [contextMenu, setContextMenu] = useState(null);
+    const [showGroupDetails, setShowGroupDetails] = useState(false);
     const fileInputRef = useRef(null);
     const messagesEndRef = useRef(null);
     const queryClient = useQueryClient();
@@ -150,14 +153,14 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 0 1 .778-.332 48.294 48.294 0 0 0 5.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
                     </svg>
                 </div>
-                <h3 className="text-2xl font-semibold text-gray-800 mb-2">Your Messages</h3>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Your Messages</h3>
                 <p className="text-gray-500 text-center max-w-xs">Select a conversation or group to start chatting.</p>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-white">
+        <div className="flex-1 flex flex-col h-full bg-white relative">
             {/* Header */}
             <div className="px-5 py-4 border-b border-rose-100 flex items-center justify-between bg-gradient-to-r from-rose-50 to-white z-10">
                 <div className="flex items-center">
@@ -166,26 +169,37 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
                         </svg>
                     </button>
-                    <div className="relative">
-                        <img
-                            src={targetAvatar}
-                            alt={targetName}
-                            className={`w-10 h-10 ${isGroup ? 'rounded-xl' : 'rounded-full'} object-cover ring-2 ring-rose-100`}
-                        />
-                        {!isGroup && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>}
-                        <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${webSocketService.isConnected ? 'bg-blue-500' : 'bg-red-500'}`} title={`WebSocket: ${webSocketService.isConnected ? 'Connected' : 'Disconnected'}`}></div>
-                    </div>
-                    <div className="ml-3">
-                        <span className="font-semibold text-gray-900 text-base block">{targetName}</span>
-                        <div className="flex items-center gap-1">
-                            {isGroup ? (
-                                <span className="text-xs text-gray-500">{selectedGroup.members?.length || 0} members</span>
-                            ) : (
-                                <React.Fragment>
-                                    <span className="text-xs text-green-500">Active now</span>
-                                    <span className="text-[10px] text-gray-400">{webSocketService.isConnected ? '(Live)' : '(Connecting...)'}</span>
-                                </React.Fragment>
-                            )}
+                    {/* Interactive Group Header */}
+                    <div
+                        className={`flex items-center relative ${isGroup ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                        onClick={() => isGroup && setShowGroupDetails(true)}
+                    >
+                        <div className="relative">
+                            <img
+                                src={targetAvatar}
+                                alt={targetName}
+                                className={`w-10 h-10 ${isGroup ? 'rounded-xl' : 'rounded-full'} object-cover ring-2 ring-rose-100`}
+                            />
+                            {!isGroup && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>}
+                            <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${webSocketService.isConnected ? 'bg-blue-500' : 'bg-red-500'}`} title={`WebSocket: ${webSocketService.isConnected ? 'Connected' : 'Disconnected'}`}></div>
+                        </div>
+                        <div className="ml-3">
+                            <div className="flex items-center gap-1">
+                                <span className="font-semibold text-gray-900 text-base block">{targetName}</span>
+                                {isGroup && (
+                                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {isGroup ? (
+                                    <span className="text-xs text-gray-500">{selectedGroup.members?.length || 0} members • Tap for info</span>
+                                ) : (
+                                    <React.Fragment>
+                                        <span className="text-xs text-green-500">Active now</span>
+                                        <span className="text-[10px] text-gray-400">{webSocketService.isConnected ? '(Live)' : '(Connecting...)'}</span>
+                                    </React.Fragment>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -224,7 +238,10 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
             ) : (
                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3">
                     {messages.map((msg, index) => {
-                        const isOwn = msg.senderId === currentUser.userId;
+                        // Normalize senderId: DM has msg.senderId, Group has msg.sender.id
+                        const msgSenderId = msg.senderId || msg.sender?.id;
+                        const isOwn = String(msgSenderId) === String(currentUser.userId);
+
                         const isPending = msg.pending;
                         const isFailed = msg.failed;
 
@@ -326,6 +343,15 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                     <img src={selectedImage} className="max-h-[90vh] max-w-[90vw] object-contain" />
                 </div>
             )}
+
+            {/* Group Details Modal */}
+            <GroupDetailsModal
+                isOpen={showGroupDetails}
+                onClose={() => setShowGroupDetails(false)}
+                group={selectedGroup}
+                currentUser={currentUser}
+                onUpdate={onRefetch} // To refresh member count/list in parent if needed
+            />
         </div>
     );
 };

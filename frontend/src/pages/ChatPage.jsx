@@ -82,13 +82,32 @@ const ChatPage = () => {
             // If chat open with sender
             if (selectedUserRef.current) {
                 const currentOtherId = String(selectedUserRef.current.otherUserId);
-                const msgSenderId = String(newMessage.senderId);
-                const msgReceiverId = String(newMessage.receiverId);
+                const msgSenderId = String(newMessage.senderId || newMessage.sender?.id || '');
+                const msgReceiverId = String(newMessage.receiverId || newMessage.receiver?.id || '');
 
                 // Check match
                 if (msgSenderId === currentOtherId || msgReceiverId === currentOtherId) {
                     setMessages(prev => {
+                        // Check for duplicate ID
                         if (prev.some(m => String(m.id) === String(newMessage.id))) return prev;
+
+                        // Check for Optimistic Match (from me)
+                        if (String(msgSenderId) === String(currentUser.userId)) {
+                            // Find the first pending message with same content & type
+                            const pendingIdx = prev.findIndex(m =>
+                                m.pending &&
+                                m.content === newMessage.content &&
+                                m.type === newMessage.type
+                            );
+
+                            if (pendingIdx !== -1) {
+                                // Replace optimistic with real
+                                const newArr = [...prev];
+                                newArr[pendingIdx] = newMessage;
+                                return newArr;
+                            }
+                        }
+
                         return [...prev, newMessage];
                     });
                 }
@@ -96,12 +115,7 @@ const ChatPage = () => {
         });
 
         // Subscription for Deletions (Global User Queue)
-        // Note: Group Deletions might come through Group Topic or User Queue? 
-        // Plan says: "Deletes message -> broadcast MESSAGE_DELETED" to TOPIC.
-        // But "Delete for Me" is personal. 
-        // We'll rely on the topic subscription for "For Everyone" deletions in groups.
         const subDelete = webSocketService.subscribeToMessageDeleted((event) => {
-            // This handles DM deletions for sure.
             if (event.deletionType === 'FOR_EVERYONE') {
                 setMessages(prev => prev.map(msg =>
                     String(msg.id) === String(event.messageId)
@@ -135,12 +149,27 @@ const ChatPage = () => {
                         }
                         return prev;
                     }
+
+                    // Deduplication for Group Messages (from me)
+                    // Group messages usually nest sender info: messageOrEvent.sender.id
+                    const msgSenderId = String(messageOrEvent.sender?.id || messageOrEvent.senderId);
+                    if (msgSenderId === String(currentUser.userId)) {
+                        const pendingIdx = prev.findIndex(m =>
+                            m.pending &&
+                            m.content === messageOrEvent.content &&
+                            m.type === messageOrEvent.type
+                        );
+                        if (pendingIdx !== -1) {
+                            // Replace
+                            const newArr = [...prev];
+                            newArr[pendingIdx] = messageOrEvent;
+                            return newArr;
+                        }
+                    }
+
                     return [...prev, messageOrEvent];
                 });
-                // Invalidate group list if we want to show preview (later)
             }
-            // If it's a specific delete event (if backend sends it separately)
-            // Current backend sends updated MessageResponse with deleted=true, so logic above handles it.
         });
 
         return () => {
