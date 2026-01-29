@@ -170,10 +170,11 @@ const ChatPage = () => {
 
     // 4. Group Specific Subscription (Dynamic based on selectedGroup)
     useEffect(() => {
-        if (!currentUser || !selectedGroup || !wsConnected) return;
+        const groupId = selectedGroup?.id;
+        if (!currentUser || !groupId || !wsConnected) return;
 
-        console.log(`[WS] Subscribing to Group ${selectedGroup.id}`);
-        const subGroup = webSocketService.subscribeToGroupChat(selectedGroup.id, (messageOrEvent) => {
+        console.log(`[WS] Subscribing to Group ${groupId}`);
+        const subGroup = webSocketService.subscribeToGroupChat(groupId, (messageOrEvent) => {
             console.log('[WS] Group msg/event:', messageOrEvent);
 
             // Handle valid message
@@ -191,11 +192,13 @@ const ChatPage = () => {
                     // Group messages usually nest sender info: messageOrEvent.sender.id
                     const msgSenderId = String(messageOrEvent.sender?.id || messageOrEvent.senderId);
                     if (msgSenderId === String(currentUser.userId)) {
+                        console.log('[WS] Reconciling own message:', msgSenderId, messageOrEvent.content);
                         const pendingIdx = prev.findIndex(m =>
                             m.pending &&
                             m.content === messageOrEvent.content &&
                             m.type === messageOrEvent.type
                         );
+                        console.log('[WS] Pending match index:', pendingIdx);
                         if (pendingIdx !== -1) {
                             // Replace
                             const newArr = [...prev];
@@ -212,7 +215,7 @@ const ChatPage = () => {
         return () => {
             if (subGroup) subGroup.unsubscribe();
         };
-    }, [currentUser, selectedGroup, wsConnected]);
+    }, [currentUser, selectedGroup?.id, wsConnected]);
 
     // Handlers
     const handleSelectUser = async (conv) => {
@@ -241,6 +244,7 @@ const ChatPage = () => {
         setMessagesLoading(true);
         try {
             const msgs = await groupApi.getMessages(group.id);
+            console.log('[ChatPage] Fetched messages for group:', group.id, msgs);
             setMessages(msgs);
         } catch (err) {
             console.error(err);

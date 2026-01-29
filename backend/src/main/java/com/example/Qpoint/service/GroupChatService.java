@@ -38,7 +38,7 @@ public class GroupChatService {
         User sender = userRepository.findById(senderId).orElseThrow();
         
         GroupMessage message = GroupMessage.builder()
-                .group(groupMemberRepository.findById(groupId).orElseThrow().getGroup()) // Slight optimization possible
+                .group(groupMemberRepository.findByGroupIdAndUserId(groupId, senderId).orElseThrow().getGroup()) // Ensures sender is member and gets group
                 .sender(sender)
                 .content(request.getContent())
                 .type(request.getType())
