@@ -16,6 +16,7 @@ const ChatPage = () => {
     const [currentUser, setCurrentUser] = useState(null);
     const [messagesLoading, setMessagesLoading] = useState(false);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
+    const [wsConnected, setWsConnected] = useState(false);
 
     const queryClient = useQueryClient();
     const location = useLocation();
@@ -53,15 +54,24 @@ const ChatPage = () => {
         fetchUser();
     }, []);
 
-    // 2. Connect WebSocket
+    // 2. Connect WebSocket and track connection status
     useEffect(() => {
         if (currentUser) {
             webSocketService.connect(
-                () => console.log("Connected to WebSocket"),
-                (err) => console.error("Socket error", err)
+                () => {
+                    console.log("Connected to WebSocket");
+                    setWsConnected(true);
+                },
+                (err) => {
+                    console.error("Socket error", err);
+                    setWsConnected(false);
+                }
             );
         }
-        return () => webSocketService.disconnect();
+        return () => {
+            webSocketService.disconnect();
+            setWsConnected(false);
+        };
     }, [currentUser]);
 
     // Refs for WebSocket callbacks
@@ -70,26 +80,34 @@ const ChatPage = () => {
     useEffect(() => { selectedUserRef.current = selectedUser; }, [selectedUser]);
     useEffect(() => { selectedGroupRef.current = selectedGroup; }, [selectedGroup]);
 
-    // 3. WebSocket subscriptions
+    // 3. WebSocket subscriptions - now depends on wsConnected to ensure connection is ready
     useEffect(() => {
-        if (!currentUser) return;
+        if (!currentUser || !wsConnected) return;
+
+        console.log('[WS] Setting up subscriptions for user:', currentUser.username);
 
         // Subscription for Private Messages
         const subPrivate = webSocketService.subscribeToPrivateMessages(currentUser.username, (newMessage) => {
-            console.log('[WS] Private msg:', newMessage);
+            console.log('[WS] Private msg received:', newMessage);
             queryClient.invalidateQueries(['conversations']);
 
-            // If chat open with sender
+            // If chat open with sender/receiver
             if (selectedUserRef.current) {
                 const currentOtherId = String(selectedUserRef.current.otherUserId);
                 const msgSenderId = String(newMessage.senderId || newMessage.sender?.id || '');
                 const msgReceiverId = String(newMessage.receiverId || newMessage.receiver?.id || '');
 
-                // Check match
+                console.log('[WS] Checking match - currentOtherId:', currentOtherId, 'msgSenderId:', msgSenderId, 'msgReceiverId:', msgReceiverId);
+
+                // Check match - message belongs to the open conversation
                 if (msgSenderId === currentOtherId || msgReceiverId === currentOtherId) {
+                    console.log('[WS] Match found! Adding message to state');
                     setMessages(prev => {
                         // Check for duplicate ID
-                        if (prev.some(m => String(m.id) === String(newMessage.id))) return prev;
+                        if (prev.some(m => String(m.id) === String(newMessage.id))) {
+                            console.log('[WS] Duplicate message detected, skipping');
+                            return prev;
+                        }
 
                         // Check for Optimistic Match (from me)
                         if (String(msgSenderId) === String(currentUser.userId)) {
@@ -102,20 +120,27 @@ const ChatPage = () => {
 
                             if (pendingIdx !== -1) {
                                 // Replace optimistic with real
+                                console.log('[WS] Replacing optimistic message at index:', pendingIdx);
                                 const newArr = [...prev];
                                 newArr[pendingIdx] = newMessage;
                                 return newArr;
                             }
                         }
 
+                        console.log('[WS] Appending new message to state');
                         return [...prev, newMessage];
                     });
+                } else {
+                    console.log('[WS] No match - message is for a different conversation');
                 }
+            } else {
+                console.log('[WS] No chat selected, message will be visible when chat is opened');
             }
         });
 
         // Subscription for Deletions (Global User Queue)
         const subDelete = webSocketService.subscribeToMessageDeleted((event) => {
+            console.log('[WS] Message deleted event:', event);
             if (event.deletionType === 'FOR_EVERYONE') {
                 setMessages(prev => prev.map(msg =>
                     String(msg.id) === String(event.messageId)
@@ -126,10 +151,11 @@ const ChatPage = () => {
         });
 
         return () => {
+            console.log('[WS] Cleaning up subscriptions');
             if (subPrivate) subPrivate.unsubscribe();
             if (subDelete) subDelete.unsubscribe();
         };
-    }, [currentUser, queryClient]);
+    }, [currentUser, wsConnected, queryClient]);
 
     // 4. Group Specific Subscription (Dynamic based on selectedGroup)
     useEffect(() => {
@@ -175,7 +201,7 @@ const ChatPage = () => {
         return () => {
             if (subGroup) subGroup.unsubscribe();
         };
-    }, [currentUser, selectedGroup]);
+    }, [currentUser, selectedGroup, wsConnected]);
 
     // Handlers
     const handleSelectUser = async (conv) => {

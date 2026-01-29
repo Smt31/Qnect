@@ -328,7 +328,7 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                     <input
                         type="text"
                         placeholder={isGroup ? `Message ${targetName}...` : "Type a message..."}
-                        className="flex-1 bg-transparent border-none text-gray-900 focus:ring-0 placeholder-gray-400 text-sm"
+                        className="flex-1 bg-transparent border-none text-gray-900 focus:ring-0 focus:outline-none placeholder-gray-400 text-sm"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                     />
