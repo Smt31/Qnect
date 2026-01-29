@@ -57,4 +57,13 @@ public class GroupDTO {
     public static class AddMemberRequest {
         private List<Long> userIds;
     }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UpdateGroupRequest {
+        private String name;
+        private String description;
+        private String avatarUrl;
+    }
 }

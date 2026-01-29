@@ -140,6 +140,105 @@ public class GroupService {
         member.setLeftAt(LocalDateTime.now());
         groupMemberRepository.save(member);
     }
+
+    @Transactional
+    @CacheEvict(value = "groups", key = "#groupId")
+    public void promoteToAdmin(Long groupId, Long currentUserId, Long targetUserId) {
+        GroupMember currentMember = groupMemberRepository.findByGroupIdAndUserId(groupId, currentUserId)
+                .orElseThrow(() -> new RuntimeException("Not a member"));
+        
+        if (currentMember.getRole() != GroupMember.Role.ADMIN) {
+            throw new RuntimeException("Only admins can promote members");
+        }
+
+        GroupMember targetMember = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUserId)
+                .orElseThrow(() -> new RuntimeException("Target user not found in group"));
+        
+        if (targetMember.getLeftAt() != null) {
+            throw new RuntimeException("Target user has left the group");
+        }
+
+        targetMember.setRole(GroupMember.Role.ADMIN);
+        groupMemberRepository.save(targetMember);
+        
+        log.info("User {} promoted user {} to admin in group {}", currentUserId, targetUserId, groupId);
+    }
+
+    @Transactional
+    @CacheEvict(value = "groups", key = "#groupId")
+    public void demoteFromAdmin(Long groupId, Long currentUserId, Long targetUserId) {
+        GroupMember currentMember = groupMemberRepository.findByGroupIdAndUserId(groupId, currentUserId)
+                .orElseThrow(() -> new RuntimeException("Not a member"));
+        
+        if (currentMember.getRole() != GroupMember.Role.ADMIN) {
+            throw new RuntimeException("Only admins can demote members");
+        }
+
+        GroupMember targetMember = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUserId)
+                .orElseThrow(() -> new RuntimeException("Target user not found in group"));
+        
+        if (targetMember.getRole() != GroupMember.Role.ADMIN) {
+             throw new RuntimeException("Target user is not an admin");
+        }
+        
+        // Check if target is the creator
+        if (targetMember.getGroup().getCreatedBy().getUserId().equals(targetUserId)) {
+            throw new RuntimeException("Cannot remove admin privileges from the group creator");
+        }
+
+        targetMember.setRole(GroupMember.Role.MEMBER);
+        groupMemberRepository.save(targetMember);
+        
+        log.info("User {} demoted user {} from admin in group {}", currentUserId, targetUserId, groupId);
+    }
+
+    @Transactional
+    @CacheEvict(value = "groups", key = "#groupId")
+    public GroupDTO.GroupResponse updateGroup(Long groupId, Long currentUserId, GroupDTO.UpdateGroupRequest request) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Group not found"));
+
+        GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, currentUserId)
+                .orElseThrow(() -> new RuntimeException("Not a member"));
+
+        if (member.getRole() != GroupMember.Role.ADMIN) {
+            throw new RuntimeException("Only admins can update group details");
+        }
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            group.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            group.setDescription(request.getDescription());
+        }
+        if (request.getAvatarUrl() != null) {
+            group.setAvatarUrl(request.getAvatarUrl());
+        }
+
+        groupRepository.save(group);
+        log.info("User {} updated group {}", currentUserId, groupId);
+        
+        return mapToResponse(group, currentUserId);
+    }
+
+    @Transactional
+    @CacheEvict(value = "groups", key = "#groupId")
+    public void deleteGroup(Long groupId, Long currentUserId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Group not found"));
+
+        // Only the creator can delete the group
+        if (!group.getCreatedBy().getUserId().equals(currentUserId)) {
+            throw new RuntimeException("Only the group creator can delete the group");
+        }
+
+        // Delete all group members first
+        groupMemberRepository.deleteAllByGroupId(groupId);
+        
+        // Delete the group
+        groupRepository.delete(group);
+        log.info("User {} deleted group {}", currentUserId, groupId);
+    }
     
     @Transactional(readOnly = true)
     public List<GroupDTO.GroupResponse> getMyGroups(Long userId) {

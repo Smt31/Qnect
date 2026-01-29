@@ -24,4 +24,7 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     // Check if user is active member
     @Query("SELECT COUNT(gm) > 0 FROM GroupMember gm WHERE gm.group.id = :groupId AND gm.user.userId = :userId AND gm.leftAt IS NULL")
     boolean isUserActiveMember(@Param("groupId") Long groupId, @Param("userId") Long userId);
+
+    // Delete all members of a group
+    void deleteAllByGroupId(Long groupId);
 }

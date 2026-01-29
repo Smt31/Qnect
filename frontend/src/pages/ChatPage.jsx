@@ -41,6 +41,17 @@ const ChatPage = () => {
         staleTime: 5 * 60 * 1000,
     });
 
+    // Sync selectedGroup with groups data (for member count updates, etc.)
+    useEffect(() => {
+        if (selectedGroup && groups.length > 0) {
+            const updatedGroup = groups.find(g => g.id === selectedGroup.id);
+            if (updatedGroup && JSON.stringify(updatedGroup) !== JSON.stringify(selectedGroup)) {
+                console.log('Syncing selectedGroup with updated data', updatedGroup);
+                setSelectedGroup(updatedGroup);
+            }
+        }
+    }, [groups, selectedGroup]);
+
     // 1. Fetch Current User
     useEffect(() => {
         const fetchUser = async () => {
@@ -159,7 +170,7 @@ const ChatPage = () => {
 
     // 4. Group Specific Subscription (Dynamic based on selectedGroup)
     useEffect(() => {
-        if (!currentUser || !selectedGroup) return;
+        if (!currentUser || !selectedGroup || !wsConnected) return;
 
         console.log(`[WS] Subscribing to Group ${selectedGroup.id}`);
         const subGroup = webSocketService.subscribeToGroupChat(selectedGroup.id, (messageOrEvent) => {
@@ -272,12 +283,7 @@ const ChatPage = () => {
                 // Since we rely on WebSocket to broadcast the message back,
                 // we won't get an immediate HTTP response to update the ID.
                 // The subscription listener will handle the incoming real message.
-                // We can mark the optimistic message as "sent" or let the listener deduplicate/replace it.
-                // For now, we'll keep the pending state until the real one arrives.
-                // Note: To cleanly replace, we'd need a correlation ID, but for now we'll rely on content matching or just list updates.
-                setMessages(prev => prev.map(msg =>
-                    msg.id === tempId ? { ...msg, pending: false } : msg
-                ));
+                // We leave the optimistic message as "pending" so the listener can find and replace it.
 
             } else if (selectedUser) {
                 // DM Send (HTTP)

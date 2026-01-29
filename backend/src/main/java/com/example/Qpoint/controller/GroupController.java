@@ -71,12 +71,50 @@ public class GroupController {
         groupService.leaveGroup(groupId, user.getUserId());
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/{groupId}/promote/{targetUserId}")
+    public ResponseEntity<Void> promoteToAdmin(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long groupId,
+            @PathVariable Long targetUserId) {
+        User user = userService.findByUsername(userDetails.getUsername());
+        groupService.promoteToAdmin(groupId, user.getUserId(), targetUserId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{groupId}/demote/{targetUserId}")
+    public ResponseEntity<Void> demoteFromAdmin(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long groupId,
+            @PathVariable Long targetUserId) {
+        User user = userService.findByUsername(userDetails.getUsername());
+        groupService.demoteFromAdmin(groupId, user.getUserId(), targetUserId);
+        return ResponseEntity.ok().build();
+    }
     
     @GetMapping("/my")
     public ResponseEntity<List<GroupDTO.GroupResponse>> getMyGroups(
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.findByUsername(userDetails.getUsername());
         return ResponseEntity.ok(groupService.getMyGroups(user.getUserId()));
+    }
+
+    @PutMapping("/{groupId}")
+    public ResponseEntity<GroupDTO.GroupResponse> updateGroup(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long groupId,
+            @RequestBody GroupDTO.UpdateGroupRequest request) {
+        User user = userService.findByUsername(userDetails.getUsername());
+        return ResponseEntity.ok(groupService.updateGroup(groupId, user.getUserId(), request));
+    }
+
+    @DeleteMapping("/{groupId}")
+    public ResponseEntity<Void> deleteGroup(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long groupId) {
+        User user = userService.findByUsername(userDetails.getUsername());
+        groupService.deleteGroup(groupId, user.getUserId());
+        return ResponseEntity.ok().build();
     }
 
     // --- Messaging (Fetch History) ---
