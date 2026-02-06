@@ -16,7 +16,7 @@ const DefaultAvatar = ({ size = 'w-10 h-10', className = '' }) => (
     </div>
 );
 
-const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSendMessage, onUpdateMessages, loading }) => {
+const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSendMessage, onUpdateMessages, loading, onBack }) => {
     const [newMessage, setNewMessage] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -199,7 +199,7 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
             {/* Header */}
             <div className="px-5 py-4 border-b border-rose-100 flex items-center justify-between bg-gradient-to-r from-rose-50 to-white z-10">
                 <div className="flex items-center">
-                    <button className="md:hidden mr-3 text-gray-600 hover:text-rose-500 transition-colors" onClick={() => window.history.back()}>
+                    <button className="md:hidden mr-3 text-gray-600 hover:text-rose-500 transition-colors" onClick={onBack}>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
                         </svg>

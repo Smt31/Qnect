@@ -25,8 +25,10 @@ export default function QuestionPage() {
 
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [hasAiAnswer, setHasAiAnswer] = useState(false);
+  const [contentExpanded, setContentExpanded] = useState(false);
   const commentListRef = useRef();
 
   useEffect(() => {
@@ -234,63 +236,148 @@ export default function QuestionPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                {me?.userId === question.author?.id && (
+              {/* Action Buttons - Desktop: visible, Mobile: dropdown */}
+              <div className="relative">
+                {/* Desktop buttons - hidden on mobile */}
+                <div className="hidden md:flex flex-col gap-2">
+                  {me?.userId === question.author?.id && (
+                    <button
+                      className="flex flex-col items-center justify-center w-12 h-12 rounded-full border border-gray-200 bg-white text-gray-400 hover:text-red-500 hover:border-red-200 transition-all"
+                      onClick={handleDeleteQuestion}
+                      title="Delete Post"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                   <button
-                    className="flex flex-col items-center justify-center w-12 h-12 rounded-full border border-gray-200 bg-white text-gray-400 hover:text-red-500 hover:border-red-200 transition-all"
-                    onClick={handleDeleteQuestion}
-                    title="Delete Post"
+                    className={`flex flex-col items-center justify-center w-12 h-12 rounded-full border transition-all ${bookmarked
+                      ? 'bg-yellow-50 text-yellow-500 border-yellow-200'
+                      : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'}`}
+                    onClick={handleBookmarkToggle}
+                    title={bookmarked ? "Remove Bookmark" : "Bookmark"}
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <svg className="w-5 h-5" fill={bookmarked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                     </svg>
                   </button>
-                )}
-                <button
-                  className={`flex flex-col items-center justify-center w-12 h-12 rounded-full border transition-all ${bookmarked
-                    ? 'bg-yellow-50 text-yellow-500 border-yellow-200'
-                    : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'}`}
-                  onClick={handleBookmarkToggle}
-                  title={bookmarked ? "Remove Bookmark" : "Bookmark"}
-                >
-                  <svg className="w-5 h-5" fill={bookmarked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                </button>
 
-                {me?.userId === question.author?.id && (
-                  <button
-                    className="flex flex-col items-center justify-center w-12 h-12 rounded-full border border-gray-200 bg-white text-gray-400 hover:text-blue-500 hover:border-blue-200 transition-all font-bold"
-                    onClick={() => setIsRequestModalOpen(true)}
-                    title="Request Answer"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-                  </button>
-                )}
+                  {me?.userId === question.author?.id && (
+                    <button
+                      className="flex flex-col items-center justify-center w-12 h-12 rounded-full border border-gray-200 bg-white text-gray-400 hover:text-blue-500 hover:border-blue-200 transition-all font-bold"
+                      onClick={() => setIsRequestModalOpen(true)}
+                      title="Request Answer"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                    </button>
+                  )}
 
-                {/* Ask Cue Button - only visible to post owner and when no AI answer exists */}
-                {me?.userId === question.author?.id && !hasAiAnswer && (
+                  {me?.userId === question.author?.id && !hasAiAnswer && (
+                    <button
+                      className={`flex flex-col items-center justify-center w-12 h-12 rounded-full border transition-all ${aiGenerating
+                        ? 'bg-purple-100 text-purple-600 border-purple-300 cursor-wait'
+                        : 'border-gray-200 bg-white text-gray-400 hover:text-purple-600 hover:border-purple-300 hover:bg-purple-50'
+                        }`}
+                      onClick={handleAskAi}
+                      disabled={aiGenerating}
+                      title={aiGenerating ? "Asking Cue..." : "Ask Cue for an answer"}
+                    >
+                      {aiGenerating ? (
+                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {/* Mobile dropdown trigger */}
+                <div className="md:hidden">
                   <button
-                    className={`flex flex-col items-center justify-center w-12 h-12 rounded-full border transition-all ${aiGenerating
-                      ? 'bg-purple-100 text-purple-600 border-purple-300 cursor-wait'
-                      : 'border-gray-200 bg-white text-gray-400 hover:text-purple-600 hover:border-purple-300 hover:bg-purple-50'
-                      }`}
-                    onClick={handleAskAi}
-                    disabled={aiGenerating}
-                    title={aiGenerating ? "Asking Cue..." : "Ask Cue for an answer"}
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="w-10 h-10 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-all"
                   >
-                    {aiGenerating ? (
-                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
-                    )}
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                    </svg>
                   </button>
-                )}
+
+                  {/* Dropdown menu with smooth animation */}
+                  <div className={`absolute right-0 top-12 z-50 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden transition-all duration-200 ease-out origin-top-right ${mobileMenuOpen
+                    ? 'opacity-100 scale-100 translate-y-0'
+                    : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
+                    }`}>
+                    <div className="py-1 min-w-[180px]">
+                      {/* Bookmark */}
+                      <button
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors"
+                        onClick={() => { handleBookmarkToggle(); setMobileMenuOpen(false); }}
+                      >
+                        <svg className={`w-5 h-5 ${bookmarked ? 'text-yellow-500' : 'text-gray-400'}`} fill={bookmarked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                        </svg>
+                        <span className={bookmarked ? 'text-yellow-600' : 'text-gray-700'}>{bookmarked ? 'Remove Bookmark' : 'Bookmark'}</span>
+                      </button>
+
+                      {/* Request Answer - Owner only */}
+                      {me?.userId === question.author?.id && (
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          onClick={() => { setIsRequestModalOpen(true); setMobileMenuOpen(false); }}
+                        >
+                          <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                          </svg>
+                          <span>Request Answer</span>
+                        </button>
+                      )}
+
+                      {/* Ask AI - Owner only, no AI answer yet */}
+                      {me?.userId === question.author?.id && !hasAiAnswer && (
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                          onClick={() => { handleAskAi(); setMobileMenuOpen(false); }}
+                          disabled={aiGenerating}
+                        >
+                          <svg className={`w-5 h-5 ${aiGenerating ? 'text-purple-500 animate-spin' : 'text-purple-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                          <span>{aiGenerating ? 'Asking Cue...' : 'Ask Cue'}</span>
+                        </button>
+                      )}
+
+                      {/* Delete - Owner only */}
+                      {me?.userId === question.author?.id && (
+                        <>
+                          <div className="border-t border-gray-100 my-1"></div>
+                          <button
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            onClick={() => { handleDeleteQuestion(); setMobileMenuOpen(false); }}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Delete Post</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Backdrop to close menu */}
+                  {mobileMenuOpen && (
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setMobileMenuOpen(false)}
+                    />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -300,9 +387,22 @@ export default function QuestionPage() {
                 <FeedImage src={question.imageUrl} alt={question.title} />
               )}
               {question.content && (
-                <p className="text-lg text-gray-800 leading-relaxed whitespace-pre-wrap font-serif italic">
-                  {question.content}
-                </p>
+                <div>
+                  <p className="text-lg text-gray-800 leading-relaxed whitespace-pre-wrap font-serif italic">
+                    {question.content.length > 200 && !contentExpanded
+                      ? `${question.content.slice(0, 200)}...`
+                      : question.content
+                    }
+                  </p>
+                  {question.content.length > 200 && (
+                    <button
+                      onClick={() => setContentExpanded(!contentExpanded)}
+                      className="text-rose-500 hover:text-rose-600 text-sm font-medium mt-2 transition-colors"
+                    >
+                      {contentExpanded ? 'Hide' : 'Read more'}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 

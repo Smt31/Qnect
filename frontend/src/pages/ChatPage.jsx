@@ -369,6 +369,10 @@ const ChatPage = () => {
                             onSendMessage={handleSendMessage}
                             onUpdateMessages={setMessages}
                             loading={messagesLoading}
+                            onBack={() => {
+                                setSelectedUser(null);
+                                setSelectedGroup(null);
+                            }}
                         />
                     </div>
                 </div>
