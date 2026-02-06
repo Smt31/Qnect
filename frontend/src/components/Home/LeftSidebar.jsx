@@ -259,10 +259,10 @@ export default function LeftSidebar({ user, onAskQuestion }) {
 
                 {/* Drawer */}
                 <aside
-                    className={`fixed left-0 top-0 bottom-0 w-72 bg-white z-50 overflow-y-auto transform transition-transform duration-300 ease-out shadow-xl ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                    className={`fixed left-0 top-0 bottom-0 w-72 bg-white z-50 flex flex-col transform transition-transform duration-300 ease-out shadow-xl ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
                 >
-                    {/* Close button */}
-                    <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                    {/* Close button - Fixed header */}
+                    <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200">
                         <div className="flex items-center gap-2">
                             <div className="size-8 bg-[#FF6B6B] rounded-lg flex items-center justify-center text-white">
                                 <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
@@ -281,7 +281,13 @@ export default function LeftSidebar({ user, onAskQuestion }) {
                             </svg>
                         </button>
                     </div>
-                    {sidebarContent}
+                    {/* Scrollable content area */}
+                    <div
+                        className="flex-1 overflow-y-auto overflow-x-hidden"
+                        style={{ WebkitOverflowScrolling: 'touch' }}
+                    >
+                        {sidebarContent}
+                    </div>
                 </aside>
             </div>
         </>

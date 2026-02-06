@@ -44,7 +44,7 @@ const ConversationList = ({ conversations, groups = [], selectedUser, selectedGr
     const showDirect = activeTab === 'all' || activeTab === 'direct';
 
     return (
-        <div className="w-full h-full flex flex-col bg-gradient-to-b from-white to-gray-50/50">
+        <div className="w-full h-full flex flex-col bg-gradient-to-b from-white to-gray-50/50 overflow-hidden">
             {/* Header */}
             <div className="p-5 bg-white border-b border-gray-100">
                 <div className="flex items-center justify-between mb-4">
@@ -101,7 +101,7 @@ const ConversationList = ({ conversations, groups = [], selectedUser, selectedGr
             </div>
 
             {/* Conversation List */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pb-16 md:pb-0">
                 {loading ? (
                     <ConversationSkeleton />
                 ) : (filteredConversations.length === 0 && filteredGroups.length === 0) ? (
@@ -229,7 +229,7 @@ const ConversationList = ({ conversations, groups = [], selectedUser, selectedGr
                                                 )}
                                             </div>
                                             <div className="flex items-center justify-between gap-2 mt-0.5">
-                                                <p className={`text-sm truncate ${conv.unreadCount > 0
+                                                <p className={`text-sm truncate max-w-[180px] ${conv.unreadCount > 0
                                                     ? 'text-gray-800 font-medium'
                                                     : 'text-gray-500'
                                                     }`}>
