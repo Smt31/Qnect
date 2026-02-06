@@ -146,6 +146,15 @@ public class GroupController {
         User user = userService.findByUsername(userDetails.getUsername());
         return ResponseEntity.ok(groupChatService.getGroupMessages(groupId, user.getUserId(), pageable));
     }
+
+    @PostMapping("/{groupId}/send")
+    public ResponseEntity<GroupChatDTO.MessageResponse> sendMessage(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long groupId,
+            @RequestBody GroupChatDTO.SendMessageRequest request) {
+        User user = userService.findByUsername(userDetails.getUsername());
+        return ResponseEntity.ok(groupChatService.sendMessage(groupId, user.getUserId(), request));
+    }
     
     // Deletion
     @DeleteMapping("/messages/{messageId}/everyone")

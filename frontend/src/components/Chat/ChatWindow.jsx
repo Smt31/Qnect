@@ -356,17 +356,48 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                                         <div className={`group/msg transition-all duration-300 ${msg.isDeleting ? 'opacity-0 scale-90 -translate-y-2' : ''}`}>
                                             <div
                                                 onContextMenu={(e) => handleContextMenu(e, msg)}
-                                                className={`px-4 py-2 break-words text-sm md:text-base transition-all duration-300 ${(msg.deleted || msg.content === "This message was deleted")
-                                                    ? 'bg-gray-100 text-gray-400 italic rounded-2xl opacity-60 scale-95'
-                                                    : isOwn
-                                                        ? `bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-2xl rounded-br-md shadow-sm ${isPending ? 'opacity-70' : ''}`
-                                                        : 'bg-white text-gray-900 rounded-2xl rounded-bl-md shadow-sm'
+                                                className={`break-words text-sm md:text-base transition-all duration-300 ${(msg.deleted || msg.content === "This message was deleted")
+                                                    ? 'px-4 py-2 bg-gray-100 text-gray-400 italic rounded-2xl opacity-60 scale-95'
+                                                    : (msg.type === 'IMAGE' || msg.type === 'POST_SHARE')
+                                                        ? '' // No background for images and shared posts
+                                                        : isOwn
+                                                            ? `px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-2xl rounded-br-md shadow-sm ${isPending ? 'opacity-70' : ''}`
+                                                            : 'px-4 py-2 bg-white text-gray-900 rounded-2xl rounded-bl-md shadow-sm'
                                                     }`}
                                             >
                                                 {msg.type === 'IMAGE' ? (
-                                                    <img src={msg.attachmentUrl || msg.content} className="rounded-lg max-h-40" onClick={() => setSelectedImage(msg.attachmentUrl || msg.content)} />
+                                                    <img src={msg.attachmentUrl || msg.content} className="rounded-xl max-h-60 shadow-sm cursor-pointer" onClick={() => setSelectedImage(msg.attachmentUrl || msg.content)} />
+                                                ) : msg.type === 'POST_SHARE' && msg.sharedPost ? (
+                                                    <a
+                                                        href={`/post/${msg.sharedPost.id}`}
+                                                        className="block no-underline"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            window.location.href = `/post/${msg.sharedPost.id}`;
+                                                        }}
+                                                    >
+                                                        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 min-w-[200px] max-w-[260px]">
+                                                            {msg.sharedPost.imageUrl && (
+                                                                <img
+                                                                    src={msg.sharedPost.imageUrl}
+                                                                    alt=""
+                                                                    className="w-full h-32 object-cover"
+                                                                />
+                                                            )}
+                                                            <div className="p-3">
+                                                                <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                                                                    {msg.sharedPost.title || 'Shared Post'}
+                                                                </p>
+                                                                {msg.sharedPost.authorName && (
+                                                                    <p className="text-xs text-gray-500 mt-1">
+                                                                        by {msg.sharedPost.authorName}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </a>
                                                 ) : (
-                                                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                                                    <p className="whitespace-pre-wrap">{msg.content || (msg.type === 'POST_SHARE' ? '📎 Shared a post' : '')}</p>
                                                 )}
                                             </div>
                                             {/* Time - slides down on hover of THIS message only */}

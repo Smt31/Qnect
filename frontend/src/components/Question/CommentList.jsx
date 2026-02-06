@@ -63,25 +63,8 @@ const CommentList = forwardRef(function CommentList({ postId, me, postAuthorId }
         <div className="mt-8 border-t border-gray-100 pt-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Comments</h3>
 
-            {comments.length > 0 ? (
-                <div className="space-y-2 mb-6">
-                    {comments.map(comment => (
-                        <CommentItem
-                            key={comment.id}
-                            comment={comment}
-                            postId={postId}
-                            refreshComments={fetchComments}
-                            me={me}
-                            postAuthorId={postAuthorId}
-                        />
-                    ))}
-                </div>
-            ) : (
-                <p className="text-gray-500 mb-6 text-sm">No comments yet.</p>
-            )}
-
-            {/* Add Comment Form */}
-            <form onSubmit={handleSubmit} className="flex gap-3">
+            {/* Add Comment Form - at top for easy access */}
+            <form onSubmit={handleSubmit} className="flex gap-3 mb-6">
                 <input
                     className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-300 transition-colors"
                     placeholder="Add a comment..."
@@ -96,6 +79,23 @@ const CommentList = forwardRef(function CommentList({ postId, me, postAuthorId }
                     Add Comment
                 </button>
             </form>
+
+            {comments.length > 0 ? (
+                <div className="space-y-2">
+                    {comments.map(comment => (
+                        <CommentItem
+                            key={comment.id}
+                            comment={comment}
+                            postId={postId}
+                            refreshComments={fetchComments}
+                            me={me}
+                            postAuthorId={postAuthorId}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <p className="text-gray-500 text-sm">No comments yet. Be the first to comment!</p>
+            )}
         </div>
     );
 });

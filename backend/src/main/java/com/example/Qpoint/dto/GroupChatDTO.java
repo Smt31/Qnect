@@ -15,7 +15,8 @@ public class GroupChatDTO {
     @AllArgsConstructor
     public static class SendMessageRequest {
         private String content;
-        private GroupMessage.MessageType type; // TEXT, IMAGE
+        private GroupMessage.MessageType type; // TEXT, IMAGE, POST_SHARE
+        private Long sharedPostId; // For POST_SHARE type
     }
 
     @Data
@@ -30,6 +31,7 @@ public class GroupChatDTO {
         private GroupMessage.MessageType type;
         private LocalDateTime createdAt;
         private boolean deleted; // For visual styling
+        private SharedPostDto sharedPost; // For POST_SHARE type
         
         @Data
         @Builder
@@ -37,6 +39,17 @@ public class GroupChatDTO {
             private Long id; // userId
             private String username;
             private String avatarUrl;
+        }
+
+        @Data
+        @Builder
+        @NoArgsConstructor
+        @AllArgsConstructor
+        public static class SharedPostDto {
+            private Long id;
+            private String title;
+            private String imageUrl;
+            private String authorName;
         }
     }
 }

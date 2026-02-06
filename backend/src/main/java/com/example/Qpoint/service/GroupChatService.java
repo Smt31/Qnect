@@ -4,6 +4,7 @@ import com.example.Qpoint.dto.GroupChatDTO;
 import com.example.Qpoint.models.GroupMessage;
 import com.example.Qpoint.models.GroupMessageDeletion;
 import com.example.Qpoint.models.GroupMember;
+import com.example.Qpoint.models.Post;
 import com.example.Qpoint.models.User;
 import com.example.Qpoint.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class GroupChatService {
     private final GroupMessageDeletionRepository deletionRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final PostRepository postRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
@@ -37,11 +39,18 @@ public class GroupChatService {
 
         User sender = userRepository.findById(senderId).orElseThrow();
         
+        Post sharedPost = null;
+        if (request.getSharedPostId() != null && request.getType() == GroupMessage.MessageType.POST_SHARE) {
+            sharedPost = postRepository.findById(request.getSharedPostId())
+                    .orElseThrow(() -> new RuntimeException("Shared post not found"));
+        }
+        
         GroupMessage message = GroupMessage.builder()
-                .group(groupMemberRepository.findByGroupIdAndUserId(groupId, senderId).orElseThrow().getGroup()) // Ensures sender is member and gets group
+                .group(groupMemberRepository.findByGroupIdAndUserId(groupId, senderId).orElseThrow().getGroup())
                 .sender(sender)
                 .content(request.getContent())
                 .type(request.getType())
+                .sharedPost(sharedPost)
                 .createdAt(LocalDateTime.now())
                 .build();
         
@@ -158,6 +167,17 @@ public class GroupChatService {
     }
 
     private GroupChatDTO.MessageResponse mapToResponse(GroupMessage m, boolean deleted) {
+        GroupChatDTO.MessageResponse.SharedPostDto sharedPostDto = null;
+        if (m.getSharedPost() != null) {
+            Post p = m.getSharedPost();
+            sharedPostDto = GroupChatDTO.MessageResponse.SharedPostDto.builder()
+                    .id(p.getId())
+                    .title(p.getTitle())
+                    .imageUrl(p.getImageUrl())
+                    .authorName(p.getAuthor() != null ? p.getAuthor().getFullName() : null)
+                    .build();
+        }
+        
         return GroupChatDTO.MessageResponse.builder()
                 .id(m.getId())
                 .groupId(m.getGroup().getId())
@@ -170,6 +190,7 @@ public class GroupChatService {
                         .build())
                 .createdAt(m.getCreatedAt())
                 .deleted(deleted)
+                .sharedPost(sharedPostDto)
                 .build();
     }
     

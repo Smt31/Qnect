@@ -67,6 +67,18 @@ export default function HomePage() {
   // Refine with CUE state
   const [refineOpen, setRefineOpen] = useState(false);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (askOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [askOpen]);
+
   const handleShare = (post) => {
     setSharePost(post);
     setShowShareModal(true);

@@ -37,7 +37,11 @@ public class GroupMessage {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shared_post_id")
+    private Post sharedPost;
+
     public enum MessageType {
-        TEXT, IMAGE, SYSTEM
+        TEXT, IMAGE, SYSTEM, POST_SHARE
     }
 }

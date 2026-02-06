@@ -311,6 +311,7 @@ export const groupApi = {
   deleteMessageForEveryone: (messageId) => del(`/api/groups/messages/${messageId}/everyone`, true),
   getPublicGroups: () => get('/api/groups/public', true),
   joinGroup: (groupId) => post(`/api/groups/${groupId}/join`, {}, true),
+  sendMessage: (groupId, payload) => post(`/api/groups/${groupId}/send`, payload, true),
 };
 
 export { API_URL };
