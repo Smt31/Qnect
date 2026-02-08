@@ -15,6 +15,7 @@ import java.util.Optional;
 public interface CommentRepository extends JpaRepository<Comment, Long> {
     Page<Comment> findByPostAndParentIsNullOrderByCreatedAtDesc(Post post, Pageable pageable);
     Page<Comment> findByPostOrderByCreatedAtDesc(Post post, Pageable pageable);
+    List<Comment> findByPostOrderByCreatedAtDesc(Post post); // For news comments without pagination
     Page<Comment> findByAuthorOrderByCreatedAtDesc(User author, Pageable pageable);
     void deleteByPost(Post post);
     

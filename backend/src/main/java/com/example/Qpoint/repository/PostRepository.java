@@ -30,7 +30,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.content) LIKE LOWER(CONCAT('%', :query, '%'))")
     Page<Post> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(@Param("query") String title, @Param("query") String content, Pageable pageable);
     
-    @Query("SELECT p FROM Post p ORDER BY (p.viewsCount + p.likesCount * 2 + p.commentsCount) DESC, p.createdAt DESC")
+    
+    @Query("SELECT p FROM Post p ORDER BY ((p.upvotes - p.downvotes) * 2 + p.viewsCount + p.commentsCount) DESC, p.createdAt DESC")
     Page<Post> findTrendingPosts(Pageable pageable);
 
     // "For You" feed: rank by engagement + recency

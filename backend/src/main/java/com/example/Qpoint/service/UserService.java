@@ -76,7 +76,6 @@ public class UserService {
                 .username(username)
                 .fullName(fullName == null || fullName.isBlank() ? username : fullName)
                 .passwordHash(passwordEncoder.encode(password))
-                .verified(true)
                 .build();
         return userRepository.save(user);
     }
@@ -142,7 +141,6 @@ public class UserService {
         dto.setQuestionsCount(updatedUser.getQuestionsCount());
         dto.setAnswersCount(updatedUser.getAnswersCount());
         dto.setSkills(updatedUser.getSkills() != null ? new java.util.ArrayList<>(updatedUser.getSkills()) : null);
-        dto.setVerified(updatedUser.getVerified());
         dto.setAllowPublicMessages(updatedUser.getAllowPublicMessages());
 
         return dto;
@@ -409,7 +407,6 @@ public class UserService {
         dto.setAnswersCount(user.getAnswersCount());
         // Create a defensive copy of skills to avoid LazyInitializationException after transaction closes
         dto.setSkills(user.getSkills() != null ? new java.util.ArrayList<>(user.getSkills()) : null);
-        dto.setVerified(user.getVerified());
         dto.setAllowPublicMessages(user.getAllowPublicMessages());
         return dto;
     }

@@ -22,7 +22,7 @@ const flattenReplies = (replies) => {
 };
 
 export default function CommentItem({ comment, postId, refreshComments, me, depth = 0, postAuthorId }) {
-    const [voteStatus, setVoteStatus] = useState('NONE');
+    const [voteStatus, setVoteStatus] = useState(comment.currentUserVoteStatus || 'NONE');
     const [upvotes, setUpvotes] = useState(comment.upvotes || 0);
     const [downvotes, setDownvotes] = useState(comment.downvotes || 0);
 
@@ -50,13 +50,8 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
     const isRoot = depth === 0;
     const flatChildren = isRoot ? flattenReplies(comment.replies) : [];
 
-    useEffect(() => {
-        if (me) {
-            voteApi.getCommentVoteStatus(comment.id)
-                .then(status => setVoteStatus(status || 'NONE'))
-                .catch(err => console.error(err));
-        }
-    }, [comment.id, me]);
+    // Removed useEffect for fetching vote status - now passed in comment object
+
 
     // Search for users when mentionQuery changes
     useEffect(() => {

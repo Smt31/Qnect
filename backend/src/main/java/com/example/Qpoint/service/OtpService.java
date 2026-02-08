@@ -88,8 +88,6 @@ public class OtpService {
                     .mobileNumber(req.getMobileNumber())
                     .avatarUrl(req.getAvatarUrl())
                     .bio(req.getBio())
-                    .verified(true)
-
 
                     .answersCount(0)
                     .questionsCount(0)
@@ -109,7 +107,6 @@ public class OtpService {
         });
 
         boolean updated = false;
-        if (!user.getVerified()) { user.setVerified(true); updated = true; }
         if (req.getUsername() != null && !req.getUsername().isBlank()) {
             if (!req.getUsername().equals(user.getUsername())) {
                 if (userRepo.existsByUsername(req.getUsername())) {

@@ -26,7 +26,6 @@ public class ChatService {
     private final ConversationRepository conversationRepository;
     private final FollowRepository followRepository;
     private final AnswerRequestRepository answerRequestRepository;
-    private final AnswerRepository answerRepository;
     private final PostRepository postRepository;
     private final MessageDeletionRepository messageDeletionRepository;
     private final SimpMessagingTemplate messagingTemplate;

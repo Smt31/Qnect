@@ -23,15 +23,17 @@ public class CommentService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final com.example.Qpoint.repository.VoteRepository voteRepository;
 
     private final org.springframework.cache.CacheManager cacheManager;
 
-    public CommentService(CommentRepository commentRepository, PostRepository postRepository, UserRepository userRepository, NotificationService notificationService, org.springframework.cache.CacheManager cacheManager) {
+    public CommentService(CommentRepository commentRepository, PostRepository postRepository, UserRepository userRepository, NotificationService notificationService, org.springframework.cache.CacheManager cacheManager, com.example.Qpoint.repository.VoteRepository voteRepository) {
         this.commentRepository = commentRepository;
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.cacheManager = cacheManager;
+        this.voteRepository = voteRepository;
     }
     
     // ... [createComment and updateComment code remains from previous step, but I need to handle deleteComment correctly]
@@ -156,29 +158,145 @@ public class CommentService {
 
     @Transactional(readOnly = true)
     @org.springframework.cache.annotation.Cacheable(value = "comments", key = "#postId + ':' + #page + ':' + #size")
-    public com.example.Qpoint.dto.PageDto<PostCommentDto> getCommentsForPost(Long postId, int page, int size) {
+    public com.example.Qpoint.dto.PageDto<PostCommentDto> getCommentsStructure(Long postId, int page, int size) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         // Only return top-level comments
-        Page<PostCommentDto> pageResult = commentRepository.findByPostAndParentIsNullOrderByCreatedAtDesc(post, pageable)
-                .map(this::convertToPostCommentDto);
-        return new com.example.Qpoint.dto.PageDto<>(pageResult);
+        Page<Comment> comments = commentRepository.findByPostAndParentIsNullOrderByCreatedAtDesc(post, pageable);
+        
+        // Convert with null userId implies no vote status (all "NONE")
+        return new com.example.Qpoint.dto.PageDto<>(convertToPostCommentDtoBulk(comments, null));
     }
 
     @Transactional(readOnly = true)
-    public com.example.Qpoint.dto.PageDto<PostCommentDto> getUserComments(Long userId, int page, int size) {
+    public com.example.Qpoint.dto.PageDto<PostCommentDto> getCommentsForPost(Long postId, int page, int size, Long currentUserId) {
+        // 1. Get cached structure (votes are NONE)
+        com.example.Qpoint.dto.PageDto<PostCommentDto> pageDto = getCommentsStructure(postId, page, size);
+        
+        // 2. If user is logged in, populate real votes
+        if (currentUserId != null && pageDto.getContent() != null && !pageDto.getContent().isEmpty()) {
+            populateVotesForPage(pageDto, currentUserId);
+        }
+        
+        return pageDto;
+    }
+
+    private void populateVotesForPage(com.example.Qpoint.dto.PageDto<PostCommentDto> pageDto, Long currentUserId) {
+        // Collect all comment IDs recursively
+        java.util.List<Long> allCommentIds = new java.util.ArrayList<>();
+        for (PostCommentDto dto : pageDto.getContent()) {
+            collectDtoIds(dto, allCommentIds);
+        }
+
+        if (allCommentIds.isEmpty()) return;
+
+        User user = userRepository.getReferenceById(currentUserId);
+        java.util.List<com.example.Qpoint.models.Vote> votes = voteRepository.findAllByUserAndEntityTypeAndEntityIdIn(
+                user, com.example.Qpoint.models.Vote.EntityType.COMMENT, allCommentIds);
+
+        java.util.Map<Long, String> voteMap = votes.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        com.example.Qpoint.models.Vote::getEntityId,
+                        v -> v.getVoteType().name(),
+                        (a, b) -> a));
+
+        // Update DTOs
+        for (PostCommentDto dto : pageDto.getContent()) {
+            updateDtoVotes(dto, voteMap);
+        }
+    }
+
+    private void collectDtoIds(PostCommentDto dto, java.util.List<Long> ids) {
+        ids.add(dto.getId());
+        if (dto.getReplies() != null) {
+            for (PostCommentDto reply : dto.getReplies()) {
+                collectDtoIds(reply, ids);
+            }
+        }
+    }
+
+    private void updateDtoVotes(PostCommentDto dto, java.util.Map<Long, String> voteMap) {
+        dto.setCurrentUserVoteStatus(voteMap.getOrDefault(dto.getId(), "NONE"));
+        if (dto.getReplies() != null) {
+            for (PostCommentDto reply : dto.getReplies()) {
+                updateDtoVotes(reply, voteMap);
+            }
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public com.example.Qpoint.dto.PageDto<PostCommentDto> getUserComments(Long userId, int page, int size, Long currentUserId) {
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<PostCommentDto> pageResult = commentRepository.findByAuthorOrderByCreatedAtDesc(author, pageable)
-                .map(this::convertToPostCommentDto);
-        return new com.example.Qpoint.dto.PageDto<>(pageResult);
+        Page<Comment> comments = commentRepository.findByAuthorOrderByCreatedAtDesc(author, pageable);
+        
+        return new com.example.Qpoint.dto.PageDto<>(convertToPostCommentDtoBulk(comments, currentUserId));
     }
 
-    public PostCommentDto convertToPostCommentDto(Comment comment) {
+    private Page<PostCommentDto> convertToPostCommentDtoBulk(Page<Comment> comments, Long currentUserId) {
+        if (comments.isEmpty()) {
+            return comments.map(c -> convertToPostCommentDto(c, "NONE"));
+        }
+
+        // If no user, just convert structure with NONE
+        if (currentUserId == null) {
+             return comments.map(c -> convertToPostCommentDtoWithVotes(c, java.util.Collections.emptyMap()));
+        }
+
+        java.util.List<Comment> commentList = comments.getContent();
+        
+        // Flatten comments to get all IDs including replies
+        java.util.List<Comment> allComments = new java.util.ArrayList<>();
+        for (Comment c : commentList) {
+            collectCommentsRecursively(c, allComments);
+        }
+        
+        java.util.List<Long> allCommentIds = allComments.stream().map(Comment::getId).toList();
+        
+        java.util.Map<Long, String> voteMap = java.util.Collections.emptyMap();
+        
+        if (!allCommentIds.isEmpty()) {
+            User user = userRepository.getReferenceById(currentUserId);
+            java.util.List<com.example.Qpoint.models.Vote> votes = voteRepository.findAllByUserAndEntityTypeAndEntityIdIn(
+                    user, com.example.Qpoint.models.Vote.EntityType.COMMENT, allCommentIds);
+            
+            voteMap = votes.stream()
+                    .collect(java.util.stream.Collectors.toMap(
+                            com.example.Qpoint.models.Vote::getEntityId,
+                            v -> v.getVoteType().name(),
+                            (a, b) -> a));
+        }
+
+        final java.util.Map<Long, String> finalVoteMap = voteMap;
+        return comments.map(c -> convertToPostCommentDtoWithVotes(c, finalVoteMap));
+    }
+
+    private void collectCommentsRecursively(Comment comment, java.util.List<Comment> accumulator) {
+        accumulator.add(comment);
+        if (comment.getReplies() != null) {
+            for (Comment reply : comment.getReplies()) {
+                collectCommentsRecursively(reply, accumulator);
+            }
+        }
+    }
+
+    private PostCommentDto convertToPostCommentDtoWithVotes(Comment comment, java.util.Map<Long, String> voteMap) {
+         PostCommentDto dto = convertToPostCommentDto(comment, voteMap.getOrDefault(comment.getId(), "NONE"));
+         
+         // Re-map replies with vote context
+         if (comment.getReplies() != null && !comment.getReplies().isEmpty()) {
+             dto.setReplies(comment.getReplies().stream()
+                     .map(reply -> convertToPostCommentDtoWithVotes(reply, voteMap))
+                     .collect(java.util.stream.Collectors.toList()));
+         }
+         return dto;
+    }
+
+    public PostCommentDto convertToPostCommentDto(Comment comment, String voteStatus) {
         PostCommentDto dto = new PostCommentDto();
         dto.setId(comment.getId());
         dto.setPostId(comment.getPost().getId());
@@ -199,17 +317,27 @@ public class CommentService {
         authorDto.setFullName(comment.getAuthor().getFullName());
         authorDto.setAvatarUrl(comment.getAuthor().getAvatarUrl());
         dto.setAuthor(authorDto);
+        
+        dto.setCurrentUserVoteStatus(voteStatus);
 
-        // Map replies recursively (limit depth if needed, but for now simple recursion)
+        // Note: Replies handling moved to wrapper/bulk method to support vote context propagation.
+        // In simple conversion without bulk context, we default to NONE for replies unless handled by wrapper.
+        // Maintain existing recursion for unexpected single calls:
         if (comment.getReplies() != null && !comment.getReplies().isEmpty()) {
-            dto.setReplies(comment.getReplies().stream()
-                    .map(this::convertToPostCommentDto)
-                    .collect(java.util.stream.Collectors.toList()));
+             // For single conversion logic (legacy), we can't fetch votes efficiently.
+             // We just map structure.
+             dto.setReplies(comment.getReplies().stream()
+                     .map(r -> convertToPostCommentDto(r, "NONE")) 
+                     .collect(java.util.stream.Collectors.toList()));
         } else {
             dto.setReplies(new java.util.ArrayList<>());
         }
 
         return dto;
+    }
+
+    public PostCommentDto convertToPostCommentDto(Comment comment) {
+        return convertToPostCommentDto(comment, "NONE");
     }
 
     /**

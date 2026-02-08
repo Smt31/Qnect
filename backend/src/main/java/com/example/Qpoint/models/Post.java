@@ -54,10 +54,6 @@ public class Post {
 
     @Builder.Default
     @Column(nullable = false)
-    private Integer likesCount = 0;
-
-    @Builder.Default
-    @Column(nullable = false)
     private Integer upvotes = 0;
 
     @Builder.Default
@@ -85,16 +81,10 @@ public class Post {
     private Instant updatedAt = Instant.now();
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Answer> answers;
-
-    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments;
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Bookmark> bookmarks;
-
-    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Like> likes;
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PostView> postViews;

@@ -12,7 +12,6 @@ public class FeedPostDto {
     private String content;
     private String imageUrl;
     private List<String> tags;
-    private Integer likesCount;
     private Integer upvotes;
     private Integer downvotes;
     private Integer answerCount;

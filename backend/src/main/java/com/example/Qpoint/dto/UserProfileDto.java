@@ -20,7 +20,6 @@ public class UserProfileDto {
     private Integer questionsCount;
     private Integer answersCount;
     private List<String> skills;
-    private Boolean verified;
     private Boolean allowPublicMessages;
     private Boolean isFollowing;
 }

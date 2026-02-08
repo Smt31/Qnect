@@ -52,9 +52,6 @@ public class Comment {
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
     private java.util.List<Comment> replies;
 
-    @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
-    private java.util.List<CommentLike> commentLikes;
-
     // Helper to store mentioned usernames slightly denormalized or just rely on content parsing
     // For simple implementation, we assume parsing happens at service level, 
     // but we can look up mentioned users if we want to notify them.

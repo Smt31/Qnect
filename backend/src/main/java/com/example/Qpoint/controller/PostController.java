@@ -111,8 +111,16 @@ public class PostController {
     @GetMapping("/{id}/comments")
     public ResponseEntity<com.example.Qpoint.dto.PageDto<PostCommentDto>> getComments(@PathVariable Long id,
                                                             @RequestParam(defaultValue = "0") int page,
-                                                            @RequestParam(defaultValue = "10") int size) {
-        com.example.Qpoint.dto.PageDto<PostCommentDto> comments = commentService.getCommentsForPost(id, page, size);
+                                                            @RequestParam(defaultValue = "10") int size,
+                                                            Authentication authentication) {
+        Long userId = null;
+        if (authentication != null && authentication.isAuthenticated()) {
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof CustomUserDetails) {
+                userId = ((CustomUserDetails) principal).getUserId();
+            }
+        }
+        com.example.Qpoint.dto.PageDto<PostCommentDto> comments = commentService.getCommentsForPost(id, page, size, userId);
         return ResponseEntity.ok(comments);
     }
 }

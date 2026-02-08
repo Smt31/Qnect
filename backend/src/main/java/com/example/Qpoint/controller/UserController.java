@@ -5,9 +5,7 @@ import com.example.Qpoint.dto.UserStatsDto;
 import com.example.Qpoint.dto.SuggestionsDto;
 import com.example.Qpoint.service.UserService;
 import com.example.Qpoint.service.PostService;
-import com.example.Qpoint.service.AnswerService;
 import com.example.Qpoint.dto.FeedPostDto;
-import com.example.Qpoint.dto.AnswerResponseDto;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
@@ -22,12 +20,12 @@ public class UserController {
 
     private final UserService userService;
     private final PostService postService;
-    private final AnswerService answerService;
+    private final com.example.Qpoint.service.CommentService commentService;
 
-    public UserController(UserService userService, PostService postService, AnswerService answerService) {
+    public UserController(UserService userService, PostService postService, com.example.Qpoint.service.CommentService commentService) {
         this.userService = userService;
         this.postService = postService;
-        this.answerService = answerService;
+        this.commentService = commentService;
     }
 
     @GetMapping("/me")
@@ -234,15 +232,6 @@ public class UserController {
         return ResponseEntity.ok(questions);
     }
     
-    @GetMapping("/{id}/answers")
-    public ResponseEntity<Page<AnswerResponseDto>> getUserAnswers(
-            @PathVariable Long id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Page<AnswerResponseDto> answers = answerService.getUserAnswers(id, page, size);
-        return ResponseEntity.ok(answers);
-    }
-    
     @GetMapping("/{id}/posts-by-type")
     public ResponseEntity<com.example.Qpoint.dto.PageDto<FeedPostDto>> getUserPostsByType(
             @PathVariable Long id,
@@ -265,6 +254,19 @@ public class UserController {
             @RequestParam(defaultValue = "10") int size) {
         Page<UserProfileDto> users = userService.searchUsers(query, page, size);
         return ResponseEntity.ok(users);
+    }
+    
+    @GetMapping("/{id}/comments")
+    public ResponseEntity<com.example.Qpoint.dto.PageDto<com.example.Qpoint.dto.PostCommentDto>> getUserComments(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Authentication authentication) {
+        Long currentUserId = null;
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof CustomUserDetails) {
+            currentUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        }
+        return ResponseEntity.ok(commentService.getUserComments(id, page, size, currentUserId));
     }
     
     // DTO for update profile request

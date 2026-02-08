@@ -1,5 +1,6 @@
 package com.example.Qpoint.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
@@ -10,7 +11,7 @@ import java.time.Instant;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Vote {
     public enum EntityType {
-        QUESTION, ANSWER, COMMENT
+        QUESTION, COMMENT
     }
     
     public enum VoteType {
@@ -33,6 +34,7 @@ public class Vote {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"skills", "topics", "password", "email", "hibernateLazyInitializer", "handler"})
     private User user;
 
     @Enumerated(EnumType.STRING)

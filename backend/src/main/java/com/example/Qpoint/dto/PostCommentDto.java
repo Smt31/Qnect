@@ -15,6 +15,7 @@ public class PostCommentDto {
     private Long parentId;
     private Boolean isAiGenerated;
     private java.util.List<PostCommentDto> replies;
+    private String currentUserVoteStatus;
 
     @Data
     public static class AuthorDto {

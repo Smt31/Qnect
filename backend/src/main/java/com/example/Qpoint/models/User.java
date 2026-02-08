@@ -42,9 +42,6 @@ public class User {
     @Column(length = 255)
     private String passwordHash;
 
-    @Column(nullable = false)
-    private Boolean verified = false;
-
     @Builder.Default
     @Column(nullable = false)
     private Boolean allowPublicMessages = false;

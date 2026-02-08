@@ -192,7 +192,6 @@ public class AiCommentController {
                             .username(AI_USER_USERNAME)
                             .fullName(AI_USER_FULLNAME)
                             .passwordHash("$AI_SYSTEM_USER$") // Not a valid password, prevents login
-                            .verified(true)
                             .allowPublicMessages(false)
                             .reputation(0)
                             .followersCount(0)

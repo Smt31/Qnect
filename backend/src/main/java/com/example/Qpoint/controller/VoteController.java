@@ -39,28 +39,6 @@ public class VoteController {
         return ResponseEntity.ok(vote);
     }
 
-    @PostMapping("/answers/{answerId}")
-    public ResponseEntity<Vote> voteAnswer(@PathVariable Long answerId,
-                                         @RequestParam Vote.VoteType voteType,
-                                         Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build();
-        }
-        
-        Object principal = authentication.getPrincipal();
-        if (!(principal instanceof CustomUserDetails)) {
-            return ResponseEntity.status(401).build();
-        }
-        
-        Long userId = ((CustomUserDetails) principal).getUserId();
-        if (userId == null) {
-            return ResponseEntity.status(401).build();
-        }
-        
-        Vote vote = voteService.voteAnswer(userId, answerId, voteType);
-        return ResponseEntity.ok(vote);
-    }
-
     @PostMapping("/comments/{commentId}")
     public ResponseEntity<Vote> voteComment(@PathVariable Long commentId,
                                           @RequestParam Vote.VoteType voteType,
@@ -104,27 +82,6 @@ public class VoteController {
         return ResponseEntity.ok(voteType != null ? voteType : Vote.VoteType.NONE);
     }
 
-    @GetMapping("/answers/{answerId}/status")
-    public ResponseEntity<Vote.VoteType> getAnswerVoteStatus(@PathVariable Long answerId,
-                                                           Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build();
-        }
-        
-        Object principal = authentication.getPrincipal();
-        if (!(principal instanceof CustomUserDetails)) {
-            return ResponseEntity.status(401).build();
-        }
-        
-        Long userId = ((CustomUserDetails) principal).getUserId();
-        if (userId == null) {
-            return ResponseEntity.status(401).build();
-        }
-        
-        Vote.VoteType voteType = voteService.getUserVoteType(userId, answerId, Vote.EntityType.ANSWER);
-        return ResponseEntity.ok(voteType != null ? voteType : Vote.VoteType.NONE);
-    }
-
     @GetMapping("/comments/{commentId}/status")
     public ResponseEntity<Vote.VoteType> getCommentVoteStatus(@PathVariable Long commentId,
                                                             Authentication authentication) {
@@ -150,13 +107,6 @@ public class VoteController {
     public ResponseEntity<VoteCounts> getQuestionVoteCounts(@PathVariable Long questionId) {
         long upvotes = voteService.getUpvoteCount(Vote.EntityType.QUESTION, questionId);
         long downvotes = voteService.getDownvoteCount(Vote.EntityType.QUESTION, questionId);
-        return ResponseEntity.ok(new VoteCounts(upvotes, downvotes));
-    }
-
-    @GetMapping("/answers/{answerId}/counts")
-    public ResponseEntity<VoteCounts> getAnswerVoteCounts(@PathVariable Long answerId) {
-        long upvotes = voteService.getUpvoteCount(Vote.EntityType.ANSWER, answerId);
-        long downvotes = voteService.getDownvoteCount(Vote.EntityType.ANSWER, answerId);
         return ResponseEntity.ok(new VoteCounts(upvotes, downvotes));
     }
 

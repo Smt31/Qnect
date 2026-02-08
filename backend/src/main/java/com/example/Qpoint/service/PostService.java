@@ -31,9 +31,7 @@ public class PostService {
     private final com.example.Qpoint.repository.PostViewRepository postViewRepository;
     private final com.example.Qpoint.repository.VoteRepository voteRepository;
     private final com.example.Qpoint.repository.CommentRepository commentRepository;
-    private final com.example.Qpoint.repository.AnswerRepository answerRepository;
     private final com.example.Qpoint.repository.BookmarkRepository bookmarkRepository;
-    private final com.example.Qpoint.repository.LikeRepository likeRepository;
     private final com.example.Qpoint.repository.TopicRepository topicRepository;
 
     private final org.springframework.cache.CacheManager cacheManager;
@@ -42,9 +40,7 @@ public class PostService {
                        com.example.Qpoint.repository.PostViewRepository postViewRepository,
                        com.example.Qpoint.repository.VoteRepository voteRepository,
                        com.example.Qpoint.repository.CommentRepository commentRepository,
-                       com.example.Qpoint.repository.AnswerRepository answerRepository,
                        com.example.Qpoint.repository.BookmarkRepository bookmarkRepository,
-                       com.example.Qpoint.repository.LikeRepository likeRepository,
                        com.example.Qpoint.repository.TopicRepository topicRepository,
                        org.springframework.cache.CacheManager cacheManager) {
         this.postRepository = postRepository;
@@ -52,9 +48,7 @@ public class PostService {
         this.postViewRepository = postViewRepository;
         this.voteRepository = voteRepository;
         this.commentRepository = commentRepository;
-        this.answerRepository = answerRepository;
         this.bookmarkRepository = bookmarkRepository;
-        this.likeRepository = likeRepository;
         this.topicRepository = topicRepository;
         this.cacheManager = cacheManager;
     }
@@ -90,7 +84,6 @@ public class PostService {
         } catch (IllegalArgumentException e) {
             post.setType(PostType.QUESTION);
         }
-        post.setLikesCount(0);
         post.setUpvotes(0);
         post.setDownvotes(0);
         post.setCommentsCount(0);
@@ -128,6 +121,8 @@ public class PostService {
 
         // Add reputation for posting a question (+3)
         author.setReputation(author.getReputation() + 3);
+        // Increment questions count
+        author.setQuestionsCount(author.getQuestionsCount() + 1);
         userRepository.save(author);
 
         Post savedPost = postRepository.save(post);
@@ -215,12 +210,6 @@ public class PostService {
             // Delete votes for the post itself
             voteRepository.deleteByEntityTypeAndEntityId(com.example.Qpoint.models.Vote.EntityType.QUESTION, postId);
             
-            // Delete votes for all answers (if any)
-            if (post.getAnswers() != null) {
-                for (com.example.Qpoint.models.Answer answer : post.getAnswers()) {
-                     voteRepository.deleteByEntityTypeAndEntityId(com.example.Qpoint.models.Vote.EntityType.ANSWER, answer.getId());
-                }
-            }
              // Delete votes for comments (if any)
             if (post.getComments() != null) {
                 for (com.example.Qpoint.models.Comment comment : post.getComments()) {
@@ -238,17 +227,17 @@ public class PostService {
         try {
             bookmarkRepository.deleteByPost(post);
         } catch (Exception e) {}
-        
-        try {
-            likeRepository.deleteByPost(post);
-        } catch (Exception e) {}
 
         try {
             postViewRepository.deleteByPost(post);
         } catch (Exception e) {}
 
         commentRepository.deleteByPost(post);
-        answerRepository.deleteByPost(post);
+        
+        // Decrement questions count for the author
+        User author = post.getAuthor();
+        author.setQuestionsCount(Math.max(0, author.getQuestionsCount() - 1));
+        userRepository.save(author);
         
         // Evict individual post cache
         if (cacheManager != null) {
@@ -424,7 +413,6 @@ public class PostService {
         dto.setImageUrl(post.getImageUrl());
         // Create defensive copy of tags to avoid LazyInitializationException after transaction closes
     dto.setTags(post.getTags() != null ? new java.util.ArrayList<>(post.getTags()) : null);
-        dto.setLikesCount(post.getLikesCount());
         dto.setUpvotes(post.getUpvotes());
         dto.setDownvotes(post.getDownvotes());
         // Use stored counter instead of COUNT query (prevents N+1)
@@ -531,7 +519,6 @@ public class PostService {
             dto.setTitle(post.getTitle());
             dto.setContent(post.getContent());
             dto.setImageUrl(post.getImageUrl());
-            dto.setLikesCount(post.getLikesCount());
             dto.setUpvotes(post.getUpvotes());
             dto.setDownvotes(post.getDownvotes());
             // Use stored counter instead of COUNT query (prevents N+1)
@@ -605,7 +592,6 @@ public class PostService {
         dto.setContent(post.getContent());
         dto.setImageUrl(post.getImageUrl());
         dto.setTags(post.getTags() != null ? new java.util.ArrayList<>(post.getTags()) : java.util.Collections.emptyList());
-        dto.setLikesCount(post.getLikesCount());
         dto.setUpvotes(post.getUpvotes());
         dto.setDownvotes(post.getDownvotes());
         // Use stored counter instead of COUNT query (prevents N+1)

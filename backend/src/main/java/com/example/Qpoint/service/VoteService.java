@@ -1,7 +1,10 @@
 package com.example.Qpoint.service;
 
 import com.example.Qpoint.models.*;
-import com.example.Qpoint.repository.*;
+import com.example.Qpoint.repository.CommentRepository;
+import com.example.Qpoint.repository.PostRepository;
+import com.example.Qpoint.repository.UserRepository;
+import com.example.Qpoint.repository.VoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,18 +19,18 @@ public class VoteService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
-    private final AnswerRepository answerRepository;
     private final NotificationService notificationService; // Added NotificationService
+    private final org.springframework.cache.CacheManager cacheManager;
 
     public VoteService(VoteRepository voteRepository, PostRepository postRepository, 
                       CommentRepository commentRepository, UserRepository userRepository,
-                      AnswerRepository answerRepository, NotificationService notificationService) { // Added NotificationService to constructor
+                      NotificationService notificationService, org.springframework.cache.CacheManager cacheManager) { // Added NotificationService to constructor
         this.voteRepository = voteRepository;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
-        this.answerRepository = answerRepository;
         this.notificationService = notificationService; // Initialized NotificationService
+        this.cacheManager = cacheManager;
     }
 
     @Transactional
@@ -70,44 +73,7 @@ public class VoteService {
         }
     }
 
-    @Transactional
-    public Vote voteAnswer(Long userId, Long answerId, Vote.VoteType voteType) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Answer answer = answerRepository.findById(answerId)
-                .orElseThrow(() -> new RuntimeException("Answer not found"));
-
-        java.util.List<Vote> existingVotes = voteRepository.findAllByUserAndEntityTypeAndEntityId(
-                user, Vote.EntityType.ANSWER, answerId);
-
-        if (!existingVotes.isEmpty()) {
-            Vote primaryVote = existingVotes.get(0);
-            if (existingVotes.size() > 1) {
-                for (int i = 1; i < existingVotes.size(); i++) {
-                    removeVote(existingVotes.get(i), answer, Vote.EntityType.ANSWER, user); // Pass user
-                }
-            }
-
-            if (primaryVote.getVoteType() == voteType) {
-                removeVote(primaryVote, answer, Vote.EntityType.ANSWER, user); // Pass user
-                return null;
-            } else {
-                updateVote(primaryVote, voteType, answer, Vote.EntityType.ANSWER, user); // Pass user
-                return primaryVote;
-            }
-        } else {
-            Vote vote = Vote.builder()
-                    .user(user)
-                    .entityType(Vote.EntityType.ANSWER)
-                    .entityId(answerId)
-                    .voteType(voteType)
-                    .build();
-            vote = voteRepository.save(vote);
-            updateEntityVotes(answer, voteType, Vote.EntityType.ANSWER, true, user); // Pass user
-            return vote;
-        }
-    }
 
     @Transactional
     public Vote voteComment(Long userId, Long commentId, Vote.VoteType voteType) {
@@ -149,8 +115,10 @@ public class VoteService {
     }
 
     private void removeVote(Vote vote, Object entity, Vote.EntityType entityType, User voter) { // Added User voter
-        updateEntityVotes(entity, vote.getVoteType(), entityType, false, voter); // Pass voter
+        // Delete the vote first to avoid constraint issues
         voteRepository.delete(vote);
+        // Then update the entity vote count
+        updateEntityVotes(entity, vote.getVoteType(), entityType, false, voter); // Pass voter
     }
 
     private void updateVote(Vote vote, Vote.VoteType newType, Object entity, Vote.EntityType entityType, User voter) { // Added User voter
@@ -190,20 +158,6 @@ public class VoteService {
                     "Your post \"" + post.getTitle() + "\" reached " + post.getUpvotes() + " upvotes!"
                 );
             }
-        } else if (entityType == Vote.EntityType.ANSWER && entity instanceof Answer) {
-            Answer answer = (Answer) entity;
-            if (voteType == Vote.VoteType.UPVOTE) {
-                answer.setUpvotes(answer.getUpvotes() + (1 * multiplier));
-                
-                // Handle reputation for upvotes: +2 when adding, -2 when removing
-                User answerAuthor = answer.getAuthor();
-                int reputationChange = 2 * multiplier;
-                answerAuthor.setReputation(Math.max(0, answerAuthor.getReputation() + reputationChange));
-                userRepository.save(answerAuthor);
-            } else if (voteType == Vote.VoteType.DOWNVOTE) {
-                answer.setDownvotes(answer.getDownvotes() + (1 * multiplier));
-            }
-            answerRepository.save(answer);
         } else if (entityType == Vote.EntityType.COMMENT && entity instanceof Comment) {
             Comment comment = (Comment) entity;
             if (voteType == Vote.VoteType.UPVOTE) {
@@ -218,6 +172,17 @@ public class VoteService {
                 comment.setDownvotes(comment.getDownvotes() + (1 * multiplier));
             }
             commentRepository.save(comment);
+            evictCommentStructureCache(comment.getPost().getId());
+        }
+    }
+
+    private void evictCommentStructureCache(Long postId) {
+        if (cacheManager != null) {
+            org.springframework.cache.Cache cache = cacheManager.getCache("comments");
+            if (cache != null) {
+                // Evict the most likely cached page: Page 0 with default size 10
+                cache.evict(postId + ":0:10"); 
+            }
         }
     }
 

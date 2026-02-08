@@ -1,10 +1,10 @@
 package com.example.Qpoint.controller;
 
 import com.example.Qpoint.dto.NewsDTO;
-import com.example.Qpoint.models.Answer;
+import com.example.Qpoint.models.Comment;
 import com.example.Qpoint.models.Post;
 import com.example.Qpoint.models.User;
-import com.example.Qpoint.repository.AnswerRepository;
+import com.example.Qpoint.repository.CommentRepository;
 import com.example.Qpoint.repository.PostRepository;
 import com.example.Qpoint.repository.UserRepository;
 import com.example.Qpoint.service.NewsService;
@@ -25,7 +25,7 @@ public class NewsController {
 
     private final NewsService newsService;
     private final PostRepository postRepository;
-    private final AnswerRepository answerRepository;
+    private final CommentRepository commentRepository;
     private final UserRepository userRepository;
 
     /**
@@ -99,7 +99,7 @@ public class NewsController {
         
         Map<String, Object> response = new HashMap<>();
         response.put("postId", discussionPost.getId());
-        response.put("commentCount", discussionPost.getAnswerCount());
+        response.put("commentCount", discussionPost.getCommentsCount());
         return ResponseEntity.ok(response);
     }
 
@@ -128,17 +128,17 @@ public class NewsController {
         Post discussionPost = newsService.getOrCreateDiscussionPost(
                 articleUrl, articleTitle, articleImageUrl, user.getUserId());
         
-        // Create the answer/comment
-        Answer comment = Answer.builder()
+        // Create the comment
+        Comment comment = Comment.builder()
                 .post(discussionPost)
                 .author(user)
                 .content(commentContent)
                 .build();
         
-        Answer savedComment = answerRepository.save(comment);
+        Comment savedComment = commentRepository.save(comment);
         
         // Update comment count
-        discussionPost.setAnswerCount(discussionPost.getAnswerCount() + 1);
+        discussionPost.setCommentsCount(discussionPost.getCommentsCount() + 1);
         postRepository.save(discussionPost);
         
         Map<String, Object> response = new HashMap<>();
@@ -179,30 +179,30 @@ public class NewsController {
         }
         
         Post post = discussionPost.get();
-        List<Answer> answers = answerRepository.findByPostOrderByCreatedAtDesc(post);
+        List<Comment> comments = commentRepository.findByPostOrderByCreatedAtDesc(post);
         
         Long finalCurrentUserId = currentUserId;
-        List<Map<String, Object>> comments = answers.stream().map(answer -> {
-            Map<String, Object> comment = new HashMap<>();
-            comment.put("id", answer.getId());
-            comment.put("content", answer.getContent());
-            comment.put("upvotes", answer.getUpvotes());
-            comment.put("downvotes", answer.getDownvotes());
-            comment.put("createdAt", answer.getCreatedAt().toString());
-            comment.put("isAuthor", finalCurrentUserId != null && 
-                    finalCurrentUserId.equals(answer.getAuthor().getUserId()));
+        List<Map<String, Object>> commentList = comments.stream().map(comment -> {
+            Map<String, Object> commentMap = new HashMap<>();
+            commentMap.put("id", comment.getId());
+            commentMap.put("content", comment.getContent());
+            commentMap.put("upvotes", comment.getUpvotes());
+            commentMap.put("downvotes", comment.getDownvotes());
+            commentMap.put("createdAt", comment.getCreatedAt().toString());
+            commentMap.put("isAuthor", finalCurrentUserId != null && 
+                    finalCurrentUserId.equals(comment.getAuthor().getUserId()));
             
-            User author = answer.getAuthor();
-            comment.put("author", Map.of(
+            User author = comment.getAuthor();
+            commentMap.put("author", Map.of(
                     "id", author.getUserId(),
                     "username", author.getUsername(),
                     "fullName", author.getFullName() != null ? author.getFullName() : author.getUsername(),
                     "avatarUrl", author.getAvatarUrl() != null ? author.getAvatarUrl() : ""
             ));
             
-            return comment;
+            return commentMap;
         }).toList();
         
-        return ResponseEntity.ok(comments);
+        return ResponseEntity.ok(commentList);
     }
 }
