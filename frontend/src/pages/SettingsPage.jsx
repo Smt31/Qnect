@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Home/Navbar';
 import { getAuthToken, userApi, API_URL } from '../api';
+import ImageCropperModal from '../components/common/ImageCropperModal';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -24,6 +25,10 @@ export default function SettingsPage() {
   });
 
   const [uploading, setUploading] = useState(false);
+  
+  // Cropper State
+  const [showCropper, setShowCropper] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
     const token = getAuthToken();
@@ -64,7 +69,7 @@ export default function SettingsPage() {
     setSuccess('');
   };
 
-  const handleFileChange = async (e) => {
+  const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -72,6 +77,23 @@ export default function SettingsPage() {
       setError('File size exceeds 10MB limit');
       return;
     }
+
+    // Read file as data URL for cropping
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      setSelectedImage(reader.result);
+      setShowCropper(true);
+      // Reset file input so same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    });
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = async (croppedBlob) => {
+    setShowCropper(false);
+    
+    // Create a File object from the Blob
+    const file = new File([croppedBlob], "avatar.jpg", { type: "image/jpeg" });
 
     const uploadData = new FormData();
     uploadData.append('file', file);
@@ -92,13 +114,30 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error('Upload failed');
 
       const data = await res.json();
-      setFormData(prev => ({ ...prev, avatarUrl: data.url }));
+      const newAvatarUrl = data.url;
+      
+      setFormData(prev => ({ ...prev, avatarUrl: newAvatarUrl }));
+      
+      // Persist the change immediately
+      const updatedUser = await userApi.updateUserProfile({
+        ...formData,
+        avatarUrl: newAvatarUrl
+      });
+      setMe(updatedUser);
+      setSuccess('Profile photo updated successfully!');
+      
+      setSelectedImage(null);
     } catch (e) {
       console.error(e);
       setError('Failed to upload image. Please try again.');
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleCropCancel = () => {
+    setShowCropper(false);
+    setSelectedImage(null);
   };
 
   const handleSubmit = async (e) => {
@@ -297,6 +336,17 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+
+      {/* Image Cropper Modal */}
+      {showCropper && (
+        <ImageCropperModal
+          isOpen={showCropper}
+          imageSrc={selectedImage}
+          onCancel={handleCropCancel}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
 }
