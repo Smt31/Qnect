@@ -28,14 +28,19 @@ public class UserService {
     private final NotificationService notificationService;
     private final com.example.Qpoint.repository.TopicRepository topicRepository;
     private final com.example.Qpoint.repository.PostRepository postRepository;
+    private final FileStorageService fileStorageService;
 
-    public UserService(UserRepository userRepository, FollowRepository followRepository, PasswordEncoder passwordEncoder, NotificationService notificationService, com.example.Qpoint.repository.TopicRepository topicRepository, com.example.Qpoint.repository.PostRepository postRepository) {
+    public UserService(UserRepository userRepository, FollowRepository followRepository,
+            PasswordEncoder passwordEncoder, NotificationService notificationService,
+            com.example.Qpoint.repository.TopicRepository topicRepository,
+            com.example.Qpoint.repository.PostRepository postRepository, FileStorageService fileStorageService) {
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.passwordEncoder = passwordEncoder;
         this.notificationService = notificationService;
         this.topicRepository = topicRepository;
         this.postRepository = postRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -91,8 +96,8 @@ public class UserService {
 
     @Transactional
     @Caching(evict = {
-        @CacheEvict(value = "users", key = "#userId"),
-        @CacheEvict(value = "userStats", key = "#userId")
+            @CacheEvict(value = "users", key = "#userId"),
+            @CacheEvict(value = "userStats", key = "#userId")
     })
     public UserProfileDto updateUserProfile(Long userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId)
@@ -146,6 +151,24 @@ public class UserService {
         return dto;
     }
 
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "users", key = "#userId"),
+            @CacheEvict(value = "userStats", key = "#userId")
+    })
+    public void removeProfilePicture(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String avatarUrl = user.getAvatarUrl();
+        if (avatarUrl != null) {
+            fileStorageService.delete(avatarUrl);
+        }
+
+        user.setAvatarUrl(null);
+        userRepository.save(user);
+    }
+
     @Transactional(readOnly = true)
     @Cacheable(value = "userStats", key = "#userId")
     public UserStatsDto getUserStats(Long userId) {
@@ -188,8 +211,7 @@ public class UserService {
     public org.springframework.data.domain.Page<UserProfileDto> searchUsers(String query, int page, int size) {
         org.springframework.data.domain.Page<User> users = userRepository.searchUsers(
                 query,
-                org.springframework.data.domain.PageRequest.of(page, size)
-        );
+                org.springframework.data.domain.PageRequest.of(page, size));
         // Filter out system users from search results
         return users.map(user -> isSystemUser(user) ? null : convertToUserProfileDto(user));
     }
@@ -204,12 +226,12 @@ public class UserService {
 
     @Transactional
     @Caching(evict = {
-        @CacheEvict(value = "userStats", key = "#followerId"),
-        @CacheEvict(value = "userStats", key = "#followingId"),
-        // Evict 'following' list of the follower
-        @CacheEvict(value = "userConnections", key = "#followerId + ':following'"),
-        // Evict 'followers' list of the following user
-        @CacheEvict(value = "userConnections", key = "#followingId + ':followers'")
+            @CacheEvict(value = "userStats", key = "#followerId"),
+            @CacheEvict(value = "userStats", key = "#followingId"),
+            // Evict 'following' list of the follower
+            @CacheEvict(value = "userConnections", key = "#followerId + ':following'"),
+            // Evict 'followers' list of the following user
+            @CacheEvict(value = "userConnections", key = "#followingId + ':followers'")
     })
     public void followUser(Long followerId, Long followingId) {
         if (followerId.equals(followingId)) {
@@ -243,11 +265,10 @@ public class UserService {
         // Notify Target User (the one being followed)
         notificationService.createNotification(
                 following.getUserId(), // Recipient is the user being followed
-                follower.getUserId(),  // Initiator is the follower
+                follower.getUserId(), // Initiator is the follower
                 Notification.NotificationType.FOLLOW,
-                follower.getUserId(),  // Reference ID can be follower ID
-                follower.getFullName() + " followed you"
-        );
+                follower.getUserId(), // Reference ID can be follower ID
+                follower.getFullName() + " followed you");
     }
 
     @Transactional(readOnly = true)
@@ -256,7 +277,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         List<Follow> follows = followRepository.findByFollowing(user);
-        
+
         List<UserProfileDto> dtos = follows.stream()
                 .map(f -> convertToUserProfileDto(f.getFollower()))
                 .collect(Collectors.toList());
@@ -267,9 +288,11 @@ public class UserService {
 
         return dtos;
     }
+
     @Transactional(readOnly = true)
     public boolean isFollowing(Long followerId, Long followingId) {
-        if (followerId.equals(followingId)) return false;
+        if (followerId.equals(followingId))
+            return false;
         User follower = userRepository.findById(followerId)
                 .orElseThrow(() -> new RuntimeException("Follower not found"));
         User following = userRepository.findById(followingId)
@@ -279,12 +302,12 @@ public class UserService {
 
     @Transactional
     @Caching(evict = {
-        @CacheEvict(value = "userStats", key = "#followerId"),
-        @CacheEvict(value = "userStats", key = "#followingId"),
-        // Evict 'following' list of the follower
-        @CacheEvict(value = "userConnections", key = "#followerId + ':following'"),
-        // Evict 'followers' list of the following user
-        @CacheEvict(value = "userConnections", key = "#followingId + ':followers'")
+            @CacheEvict(value = "userStats", key = "#followerId"),
+            @CacheEvict(value = "userStats", key = "#followingId"),
+            // Evict 'following' list of the follower
+            @CacheEvict(value = "userConnections", key = "#followerId + ':following'"),
+            // Evict 'followers' list of the following user
+            @CacheEvict(value = "userConnections", key = "#followingId + ':followers'")
     })
     public void unfollowUser(Long followerId, Long followingId) {
         User follower = userRepository.findById(followerId)
@@ -314,7 +337,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         List<Follow> follows = followRepository.findByFollower(user);
-        
+
         List<UserProfileDto> dtos = follows.stream()
                 .map(f -> convertToUserProfileDto(f.getFollowing()))
                 .collect(Collectors.toList());
@@ -327,45 +350,58 @@ public class UserService {
     }
 
     private void populateFollowStatus(List<UserProfileDto> users, Long currentUserId) {
-        if (users.isEmpty()) return;
+        if (users.isEmpty())
+            return;
         User currentUser = userRepository.findById(currentUserId).orElse(null);
-        if (currentUser == null) return;
-        
-        // Optimize: Fetch all follows from current user to the target users in one query
+        if (currentUser == null)
+            return;
+
+        // Optimize: Fetch all follows from current user to the target users in one
+        // query
         // But for simplicity/correctness first:
         // Or simpler: Get local list of IDs I follow?
-        // Let's iterate for now or use `followRepository.findByFollower` logic if list is large.
+        // Let's iterate for now or use `followRepository.findByFollower` logic if list
+        // is large.
         // Better:
-        // Set<Long> userIds = users.stream().map(UserProfileDto::getUserId).collect(Collectors.toSet());
-        // List<Follow> myFollows = followRepository.findByFollowerAndFollowingIdIn(currentUser, userIds);
-        // Set<Long> followedIds = myFollows.stream().map(f -> f.getFollowing().getUserId()).collect(Collectors.toSet());
+        // Set<Long> userIds =
+        // users.stream().map(UserProfileDto::getUserId).collect(Collectors.toSet());
+        // List<Follow> myFollows =
+        // followRepository.findByFollowerAndFollowingIdIn(currentUser, userIds);
+        // Set<Long> followedIds = myFollows.stream().map(f ->
+        // f.getFollowing().getUserId()).collect(Collectors.toSet());
         // users.forEach(u -> u.setIsFollowing(followedIds.contains(u.getUserId())));
-        
-        // Since I don't want to modify Repository right now without reading it, I'll fallback to N+1 safe check or assuming list is small (pagination 10-30).
-        // Actually, let's use the individual check for simplicity if we can't easily add repo method.
+
+        // Since I don't want to modify Repository right now without reading it, I'll
+        // fallback to N+1 safe check or assuming list is small (pagination 10-30).
+        // Actually, let's use the individual check for simplicity if we can't easily
+        // add repo method.
         // Wait, `convertToUserProfileDto` could just take `currentUser`? No.
-        
-        // Let's do the looped check for now. It is N queries if not batching, but page size is small.
+
+        // Let's do the looped check for now. It is N queries if not batching, but page
+        // size is small.
         // Alternatively, fetch ALL my followings (might be large).
-        
-        // Let's go with the loop for this iteration, it's safer logic-wise without repo changes.
-        // Performance note: If this is slow, I'll recommend batch fetching in next iteration.
-        
+
+        // Let's go with the loop for this iteration, it's safer logic-wise without repo
+        // changes.
+        // Performance note: If this is slow, I'll recommend batch fetching in next
+        // iteration.
+
         for (UserProfileDto dto : users) {
-             if (dto.getUserId().equals(currentUserId)) {
-                 dto.setIsFollowing(false); // Can't follow self
-             } else {
-                 dto.setIsFollowing(followRepository.existsByFollowerAndFollowing(currentUser, 
-                     userRepository.getReferenceById(dto.getUserId())));
-             }
+            if (dto.getUserId().equals(currentUserId)) {
+                dto.setIsFollowing(false); // Can't follow self
+            } else {
+                dto.setIsFollowing(followRepository.existsByFollowerAndFollowing(currentUser,
+                        userRepository.getReferenceById(dto.getUserId())));
+            }
         }
     }
+
     @Transactional
     @Caching(evict = {
-        @CacheEvict(value = "userStats", key = "#userId"),
-        @CacheEvict(value = "userStats", key = "#followerId"),
-        @CacheEvict(value = "userConnections", key = "#userId + ':followers'"),
-        @CacheEvict(value = "userConnections", key = "#followerId + ':following'")
+            @CacheEvict(value = "userStats", key = "#userId"),
+            @CacheEvict(value = "userStats", key = "#followerId"),
+            @CacheEvict(value = "userConnections", key = "#userId + ':followers'"),
+            @CacheEvict(value = "userConnections", key = "#followerId + ':following'")
     })
     public void removeFollower(Long userId, Long followerId) {
         // userId is 'me', followerId is the person I want to remove from my followers
@@ -405,11 +441,13 @@ public class UserService {
         dto.setFollowingCount(user.getFollowingCount());
         dto.setQuestionsCount(user.getQuestionsCount());
         dto.setAnswersCount(user.getAnswersCount());
-        // Create a defensive copy of skills to avoid LazyInitializationException after transaction closes
+        // Create a defensive copy of skills to avoid LazyInitializationException after
+        // transaction closes
         dto.setSkills(user.getSkills() != null ? new java.util.ArrayList<>(user.getSkills()) : null);
         dto.setAllowPublicMessages(user.getAllowPublicMessages());
         return dto;
     }
+
     @Transactional
     public void updateTopics(Long userId, List<String> topicNames) {
         User user = userRepository.findById(userId)
@@ -422,7 +460,8 @@ public class UserService {
             topics.addAll(existingTopics);
 
             // Create missing topics
-            List<String> existingNames = existingTopics.stream().map(com.example.Qpoint.models.Topic::getName).collect(Collectors.toList());
+            List<String> existingNames = existingTopics.stream().map(com.example.Qpoint.models.Topic::getName)
+                    .collect(Collectors.toList());
             for (String name : topicNames) {
                 if (!existingNames.contains(name)) {
                     com.example.Qpoint.models.Topic newTopic = com.example.Qpoint.models.Topic.builder()

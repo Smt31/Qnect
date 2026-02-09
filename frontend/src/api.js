@@ -213,7 +213,21 @@ export const userApi = {
   getUserQuestions: (id, page = 0, size = 10) => get(`/api/users/${id}/questions?page=${page}&size=${size}`, true),
   getUserPostsByType: (id, type, page = 0, size = 10) => get(`/api/users/${id}/posts-by-type?type=${type}&page=${page}&size=${size}`, true),
   getUserAnswers: (id, page = 0, size = 10) => get(`/api/users/${id}/answers?page=${page}&size=${size}`, true),
-  searchUsers: (query, page = 0, size = 10) => get(`/api/users/search?query=${query}&page=${page}&size=${size}`, true),
+  searchUsers: async (query, page = 0, size = 10) => {
+    const res = await fetch(`${API_URL}/api/users/search?query=${query}&page=${page}&size=${size}`, {
+      headers: buildHeaders(true)
+    });
+    if (!res.ok) throw new Error('Failed to search users');
+    return res.json();
+  },
+
+  deleteProfilePicture: async () => {
+    const res = await fetch(`${API_URL}/api/users/me/avatar`, {
+      method: 'DELETE',
+      headers: buildHeaders(true)
+    });
+    if (!res.ok) throw new Error('Failed to delete profile picture');
+  },
   updateTopics: (topics) => put('/api/users/me/topics', { topics }, true),
 };
 

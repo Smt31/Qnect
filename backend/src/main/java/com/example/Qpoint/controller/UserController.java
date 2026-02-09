@@ -22,7 +22,8 @@ public class UserController {
     private final PostService postService;
     private final com.example.Qpoint.service.CommentService commentService;
 
-    public UserController(UserService userService, PostService postService, com.example.Qpoint.service.CommentService commentService) {
+    public UserController(UserService userService, PostService postService,
+            com.example.Qpoint.service.CommentService commentService) {
         this.userService = userService;
         this.postService = postService;
         this.commentService = commentService;
@@ -33,17 +34,17 @@ public class UserController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof CustomUserDetails)) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Long userId = ((CustomUserDetails) principal).getUserId();
         if (userId == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         UserProfileDto user = userService.getUserProfile(userId);
         return ResponseEntity.ok(user);
     }
@@ -61,23 +62,44 @@ public class UserController {
     }
 
     @PutMapping("/me")
-    public ResponseEntity<UserProfileDto> updateProfile(@RequestBody UpdateProfileRequest request, Authentication authentication) {
+    public ResponseEntity<UserProfileDto> updateProfile(@RequestBody UpdateProfileRequest request,
+            Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof CustomUserDetails)) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Long userId = ((CustomUserDetails) principal).getUserId();
         if (userId == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         UserProfileDto updatedUser = userService.updateUserProfile(userId, request);
         return ResponseEntity.ok(updatedUser);
+    }
+
+    @DeleteMapping("/me/avatar")
+    public ResponseEntity<Void> deleteProfilePicture(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof CustomUserDetails)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Long userId = ((CustomUserDetails) principal).getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        userService.removeProfilePicture(userId);
+        return ResponseEntity.ok().build();
     }
 
     @PutMapping("/me/topics")
@@ -85,17 +107,17 @@ public class UserController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof CustomUserDetails)) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Long userId = ((CustomUserDetails) principal).getUserId();
         if (userId == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         userService.updateTopics(userId, request.getTopics());
         return ResponseEntity.ok().build();
     }
@@ -111,17 +133,17 @@ public class UserController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof CustomUserDetails)) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Long userId = ((CustomUserDetails) principal).getUserId();
         if (userId == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         SuggestionsDto suggestions = userService.getUserSuggestions(userId);
         return ResponseEntity.ok(suggestions);
     }
@@ -131,17 +153,17 @@ public class UserController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof CustomUserDetails)) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Long followerId = ((CustomUserDetails) principal).getUserId();
         if (followerId == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         userService.followUser(followerId, id);
         return ResponseEntity.ok().build();
     }
@@ -151,17 +173,17 @@ public class UserController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof CustomUserDetails)) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Long followerId = ((CustomUserDetails) principal).getUserId();
         if (followerId == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         userService.unfollowUser(followerId, id);
         return ResponseEntity.ok().build();
     }
@@ -171,24 +193,25 @@ public class UserController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof CustomUserDetails)) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Long followerId = ((CustomUserDetails) principal).getUserId();
         if (followerId == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         return ResponseEntity.ok(userService.isFollowing(followerId, id));
     }
 
     @GetMapping("/{id}/followers")
     public ResponseEntity<List<UserProfileDto>> getUserFollowers(@PathVariable Long id, Authentication authentication) {
         Long currentUserId = null;
-        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof CustomUserDetails) {
+        if (authentication != null && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof CustomUserDetails) {
             currentUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         }
         return ResponseEntity.ok(userService.getUserFollowers(id, currentUserId));
@@ -197,7 +220,8 @@ public class UserController {
     @GetMapping("/{id}/following")
     public ResponseEntity<List<UserProfileDto>> getUserFollowing(@PathVariable Long id, Authentication authentication) {
         Long currentUserId = null;
-        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof CustomUserDetails) {
+        if (authentication != null && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof CustomUserDetails) {
             currentUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         }
         return ResponseEntity.ok(userService.getUserFollowing(id, currentUserId));
@@ -208,21 +232,21 @@ public class UserController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof CustomUserDetails)) {
             return ResponseEntity.status(401).build();
         }
-        
+
         Long userId = ((CustomUserDetails) principal).getUserId();
         if (userId == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         userService.removeFollower(userId, followerId);
         return ResponseEntity.ok().build();
     }
-    
+
     @GetMapping("/{id}/questions")
     public ResponseEntity<com.example.Qpoint.dto.PageDto<FeedPostDto>> getUserQuestions(
             @PathVariable Long id,
@@ -231,7 +255,7 @@ public class UserController {
         com.example.Qpoint.dto.PageDto<FeedPostDto> questions = postService.getUserQuestions(id, page, size);
         return ResponseEntity.ok(questions);
     }
-    
+
     @GetMapping("/{id}/posts-by-type")
     public ResponseEntity<com.example.Qpoint.dto.PageDto<FeedPostDto>> getUserPostsByType(
             @PathVariable Long id,
@@ -239,14 +263,16 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            com.example.Qpoint.models.PostType postType = com.example.Qpoint.models.PostType.valueOf(type.toUpperCase());
-            com.example.Qpoint.dto.PageDto<FeedPostDto> posts = postService.getUserPostsByType(id, postType, page, size);
+            com.example.Qpoint.models.PostType postType = com.example.Qpoint.models.PostType
+                    .valueOf(type.toUpperCase());
+            com.example.Qpoint.dto.PageDto<FeedPostDto> posts = postService.getUserPostsByType(id, postType, page,
+                    size);
             return ResponseEntity.ok(posts);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
     }
-    
+
     @GetMapping("/search")
     public ResponseEntity<Page<UserProfileDto>> searchUsers(
             @RequestParam String query,
@@ -255,7 +281,7 @@ public class UserController {
         Page<UserProfileDto> users = userService.searchUsers(query, page, size);
         return ResponseEntity.ok(users);
     }
-    
+
     @GetMapping("/{id}/comments")
     public ResponseEntity<com.example.Qpoint.dto.PageDto<com.example.Qpoint.dto.PostCommentDto>> getUserComments(
             @PathVariable Long id,
@@ -263,12 +289,13 @@ public class UserController {
             @RequestParam(defaultValue = "10") int size,
             Authentication authentication) {
         Long currentUserId = null;
-        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof CustomUserDetails) {
+        if (authentication != null && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof CustomUserDetails) {
             currentUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         }
         return ResponseEntity.ok(commentService.getUserComments(id, page, size, currentUserId));
     }
-    
+
     // DTO for update profile request
     public static class UpdateProfileRequest {
         private String fullName;
@@ -277,25 +304,66 @@ public class UserController {
         private String location;
         private String username;
         private Boolean allowPublicMessages;
-        
+
         // Getters and setters
-        public String getFullName() { return fullName; }
-        public void setFullName(String fullName) { this.fullName = fullName; }
-        public String getAvatarUrl() { return avatarUrl; }
-        public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
-        public String getBio() { return bio; }
-        public void setBio(String bio) { this.bio = bio; }
-        public String getLocation() { return location; }
-        public void setLocation(String location) { this.location = location; }
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-        public Boolean getAllowPublicMessages() { return allowPublicMessages; }
-        public void setAllowPublicMessages(Boolean allowPublicMessages) { this.allowPublicMessages = allowPublicMessages; }
+        public String getFullName() {
+            return fullName;
+        }
+
+        public void setFullName(String fullName) {
+            this.fullName = fullName;
+        }
+
+        public String getAvatarUrl() {
+            return avatarUrl;
+        }
+
+        public void setAvatarUrl(String avatarUrl) {
+            this.avatarUrl = avatarUrl;
+        }
+
+        public String getBio() {
+            return bio;
+        }
+
+        public void setBio(String bio) {
+            this.bio = bio;
+        }
+
+        public String getLocation() {
+            return location;
+        }
+
+        public void setLocation(String location) {
+            this.location = location;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public Boolean getAllowPublicMessages() {
+            return allowPublicMessages;
+        }
+
+        public void setAllowPublicMessages(Boolean allowPublicMessages) {
+            this.allowPublicMessages = allowPublicMessages;
+        }
     }
-    
+
     public static class TopicUpdateRequest {
         private List<String> topics;
-        public List<String> getTopics() { return topics; }
-        public void setTopics(List<String> topics) { this.topics = topics; }
+
+        public List<String> getTopics() {
+            return topics;
+        }
+
+        public void setTopics(List<String> topics) {
+            this.topics = topics;
+        }
     }
 }
