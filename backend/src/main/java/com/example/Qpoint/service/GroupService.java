@@ -28,6 +28,7 @@ public class GroupService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final FileStorageService fileStorageService;
 
     @Transactional
     public GroupDTO.GroupResponse createGroup(Long creatorId, GroupDTO.CreateGroupRequest request) {
@@ -212,6 +213,11 @@ public class GroupService {
             group.setDescription(request.getDescription());
         }
         if (request.getAvatarUrl() != null) {
+            // Delete old avatar from Cloudinary if it exists and is different
+            String oldAvatarUrl = group.getAvatarUrl();
+            if (oldAvatarUrl != null && !oldAvatarUrl.isEmpty() && !oldAvatarUrl.equals(request.getAvatarUrl())) {
+                fileStorageService.deleteFromCloudinary(oldAvatarUrl);
+            }
             group.setAvatarUrl(request.getAvatarUrl());
         }
         if (request.getIsPrivate() != null) {

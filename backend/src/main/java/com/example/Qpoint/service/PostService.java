@@ -33,6 +33,7 @@ public class PostService {
     private final com.example.Qpoint.repository.CommentRepository commentRepository;
     private final com.example.Qpoint.repository.BookmarkRepository bookmarkRepository;
     private final com.example.Qpoint.repository.TopicRepository topicRepository;
+    private final FileStorageService fileStorageService;
 
     private final org.springframework.cache.CacheManager cacheManager;
 
@@ -42,6 +43,7 @@ public class PostService {
                        com.example.Qpoint.repository.CommentRepository commentRepository,
                        com.example.Qpoint.repository.BookmarkRepository bookmarkRepository,
                        com.example.Qpoint.repository.TopicRepository topicRepository,
+                       FileStorageService fileStorageService,
                        org.springframework.cache.CacheManager cacheManager) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
@@ -50,6 +52,7 @@ public class PostService {
         this.commentRepository = commentRepository;
         this.bookmarkRepository = bookmarkRepository;
         this.topicRepository = topicRepository;
+        this.fileStorageService = fileStorageService;
         this.cacheManager = cacheManager;
     }
 
@@ -202,6 +205,11 @@ public class PostService {
 
         if (!post.getAuthor().getUserId().equals(userId)) {
             throw new RuntimeException("Not authorized to delete this post");
+        }
+
+        // Delete image from Cloudinary if it exists
+        if (post.getImageUrl() != null && !post.getImageUrl().isEmpty()) {
+            fileStorageService.deleteFromCloudinary(post.getImageUrl());
         }
 
         // Manually delete votes because they are polymorphic and not cascaded by JPA directly

@@ -108,6 +108,11 @@ public class UserService {
             user.setFullName(request.getFullName());
         }
         if (request.getAvatarUrl() != null) {
+            // Delete old avatar from Cloudinary if it exists and is different
+            String oldAvatarUrl = user.getAvatarUrl();
+            if (oldAvatarUrl != null && !oldAvatarUrl.isEmpty() && !oldAvatarUrl.equals(request.getAvatarUrl())) {
+                fileStorageService.deleteFromCloudinary(oldAvatarUrl);
+            }
             user.setAvatarUrl(request.getAvatarUrl());
         }
         if (request.getBio() != null) {
