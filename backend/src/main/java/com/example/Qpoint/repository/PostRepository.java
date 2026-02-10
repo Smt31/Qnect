@@ -31,14 +31,14 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(@Param("query") String title, @Param("query") String content, Pageable pageable);
     
     
-    @Query("SELECT p FROM Post p ORDER BY ((p.upvotes - p.downvotes) * 2 + p.viewsCount + p.commentsCount) DESC, p.createdAt DESC")
+    @Query("SELECT p FROM Post p JOIN FETCH p.author ORDER BY ((p.upvotes - p.downvotes) * 2 + p.viewsCount + p.commentsCount) DESC, p.createdAt DESC")
     Page<Post> findTrendingPosts(Pageable pageable);
 
     // "For You" feed: rank by engagement + recency
-    @Query("SELECT p FROM Post p ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
+    @Query("SELECT p FROM Post p JOIN FETCH p.author ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
     Page<Post> findForYouPosts(Pageable pageable);
 
-    @Query("SELECT p FROM Post p WHERE p.answerCount = 0 ORDER BY p.createdAt DESC")
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.commentsCount = 0 ORDER BY p.createdAt DESC")
     Page<Post> findUnansweredPosts(Pageable pageable);
 
     // ============================================================================
@@ -46,15 +46,16 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // ============================================================================
 
     // Recent posts (excludes own posts and NEWS_DISCUSSION)
-    @Query("SELECT p FROM Post p WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
+    // Recent posts (excludes own posts and NEWS_DISCUSSION)
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
     Page<Post> findAllExcludingUser(@Param("userId") Long userId, Pageable pageable);
 
     // For You feed (engagement-ranked, excludes own posts)
-    @Query("SELECT p FROM Post p WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
     Page<Post> findForYouPostsExcludingUser(@Param("userId") Long userId, Pageable pageable);
 
-    // Unanswered posts (excludes own posts)
-    @Query("SELECT p FROM Post p WHERE p.author.userId <> :userId AND p.answerCount = 0 AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
+    // Unanswered questions (only QUESTION type, excludes own questions and questions with ANY comments)
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.type = com.example.Qpoint.models.PostType.QUESTION AND p.author.userId <> :userId AND p.commentsCount = 0 ORDER BY p.createdAt DESC")
     Page<Post> findUnansweredPostsExcludingUser(@Param("userId") Long userId, Pageable pageable);
 
     // Find news discussion post by external article URL

@@ -43,7 +43,11 @@ export default function RightSidebar({ trending, suggestions, followedUsers, onF
                 <div className="space-y-4">
                     {suggestions && suggestions.users && suggestions.users.length > 0 ? (
                         suggestions.users.slice(0, 3).map((user) => (
-                            <div key={user.userId} className="flex items-center justify-between group hover:bg-gray-50 -mx-2 px-2 py-2 rounded-lg transition-colors">
+                            <div
+                                key={user.userId}
+                                className="flex items-center justify-between group hover:bg-gray-50 -mx-2 px-2 py-2 rounded-lg transition-colors cursor-pointer"
+                                onClick={() => navigate(`/profile/${user.userId}`)}
+                            >
                                 <div className="flex items-center gap-3">
                                     <div className="bg-center bg-no-repeat bg-cover rounded-full w-10 h-10 flex items-center justify-center bg-gradient-to-br from-red-500 to-pink-500 text-white font-bold shadow-sm">
                                         {user.avatarUrl ? (
@@ -63,7 +67,10 @@ export default function RightSidebar({ trending, suggestions, followedUsers, onF
                                 </div>
                                 <button
                                     className={`text-sm font-medium transition-colors ${followedUsers[user.userId] ? 'text-gray-500' : 'text-red-600 hover:text-red-700'}`}
-                                    onClick={() => onFollow(user.userId)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onFollow(user.userId);
+                                    }}
                                 >
                                     {followedUsers[user.userId] ? 'Following' : 'Follow'}
                                 </button>

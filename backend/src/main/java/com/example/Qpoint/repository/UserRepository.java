@@ -17,7 +17,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u ORDER BY u.reputation DESC")
     List<User> findTop10ByOrderByReputationDesc();
 
-    @Query("SELECT u FROM User u WHERE u.userId <> :currentUserId AND u.userId NOT IN (SELECT f.following.userId FROM Follow f WHERE f.follower.userId = :currentUserId) ORDER BY u.reputation DESC")
+    // Optimized with LEFT JOIN instead of NOT IN subquery for better performance
+    @Query("SELECT u FROM User u LEFT JOIN Follow f ON f.following.userId = u.userId AND f.follower.userId = :currentUserId WHERE u.userId <> :currentUserId AND f.id IS NULL ORDER BY u.reputation DESC")
     List<User> findTopUsersNotFollowedBy(Long currentUserId, org.springframework.data.domain.Pageable pageable);
 
     @Query("SELECT DISTINCT u FROM User u JOIN u.topics t WHERE t IN :topics AND u.userId <> :excludeUserId")

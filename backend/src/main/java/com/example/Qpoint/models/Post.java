@@ -49,6 +49,7 @@ public class Post {
         joinColumns = @JoinColumn(name = "post_id"),
         inverseJoinColumns = @JoinColumn(name = "topic_id")
     )
+    @org.hibernate.annotations.BatchSize(size = 25)
     @Builder.Default
     private java.util.Set<Topic> topics = new java.util.HashSet<>();
 

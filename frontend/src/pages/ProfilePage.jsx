@@ -8,6 +8,7 @@ import LeftSidebar from '../components/Home/LeftSidebar';
 import MobileNav from '../components/Home/MobileNav';
 import CompactFeedCard from '../components/Feed/CompactFeedCard';
 import Skeleton from '../components/common/Skeleton';
+import ImageModal from '../components/common/ImageModal';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -85,6 +86,7 @@ export default function ProfilePage() {
   const [newTopic, setNewTopic] = useState('');
 
   const [error, setError] = useState('');
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   // Follow mutation
   const followMutation = useFollowUser();
@@ -336,7 +338,10 @@ export default function ProfilePage() {
                 <div className="px-5 pb-4">
                   <div className="flex flex-col md:flex-row items-start md:items-end -mt-8 gap-3">
                     {/* Avatar */}
-                    <div className="w-16 h-16 rounded-full border-4 border-white bg-white shadow-md overflow-hidden flex-shrink-0">
+                    <div
+                      className="w-16 h-16 rounded-full border-4 border-white bg-white shadow-md overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => profileUser.avatarUrl && setIsAvatarModalOpen(true)}
+                    >
                       {profileUser.avatarUrl ? (
                         <img src={profileUser.avatarUrl} alt={profileUser.fullName} className="w-full h-full object-cover" />
                       ) : (
@@ -345,6 +350,15 @@ export default function ProfilePage() {
                         </div>
                       )}
                     </div>
+
+                    {/* Render Modal */}
+                    {isAvatarModalOpen && (
+                      <ImageModal
+                        src={profileUser.avatarUrl}
+                        alt={profileUser.fullName}
+                        onClose={() => setIsAvatarModalOpen(false)}
+                      />
+                    )}
 
                     {/* Name & Actions */}
                     <div className="flex-1 flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-2">

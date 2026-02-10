@@ -124,6 +124,12 @@ export const feedApi = {
     params.append('size', size);
     return get(`/api/feed?${params.toString()}`, true);
   },
+  getTrending: (page = 0, size = 5) => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('size', size);
+    return get(`/api/trending?${params.toString()}`, true);
+  },
 };
 
 export const questionApi = {

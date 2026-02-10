@@ -252,15 +252,48 @@ public class GroupService {
     @Transactional(readOnly = true)
     public List<GroupDTO.GroupResponse> getMyGroups(Long userId) {
         List<GroupMember> memberships = groupMemberRepository.findActiveGroupsByUserId(userId);
+        
+        // Bulk load all members for all groups (prevents N+1)
+        List<Long> groupIds = memberships.stream()
+                .map(gm -> gm.getGroup().getId())
+                .collect(Collectors.toList());
+        
+        if (groupIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        
+        // Group members by group ID
+        java.util.Map<Long, List<GroupMember>> membersByGroup = groupMemberRepository
+                .findActiveMembersByGroupIdIn(groupIds)
+                .stream()
+                .collect(Collectors.groupingBy(gm -> gm.getGroup().getId()));
+        
         return memberships.stream()
-                .map(gm -> mapToResponse(gm.getGroup(), userId))
+                .map(gm -> mapToResponseWithMembers(gm.getGroup(), userId, membersByGroup.get(gm.getGroup().getId())))
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<GroupDTO.GroupResponse> getPublicGroups(Long currentUserId) {
-        return groupRepository.findByIsPrivateFalseOrderByCreatedAtDesc().stream()
-                .map(g -> mapToResponse(g, currentUserId))
+        // Use optimized query with JOIN FETCH for createdBy
+        List<Group> groups = groupRepository.findPublicGroupsWithCreator();
+        
+        if (groups.isEmpty()) {
+            return Collections.emptyList();
+        }
+        
+        // Bulk load all members for all groups (prevents N+1)
+        List<Long> groupIds = groups.stream()
+                .map(Group::getId)
+                .collect(Collectors.toList());
+        
+        java.util.Map<Long, List<GroupMember>> membersByGroup = groupMemberRepository
+                .findActiveMembersByGroupIdIn(groupIds)
+                .stream()
+                .collect(Collectors.groupingBy(gm -> gm.getGroup().getId()));
+        
+        return groups.stream()
+                .map(g -> mapToResponseWithMembers(g, currentUserId, membersByGroup.getOrDefault(g.getId(), Collections.emptyList())))
                 .collect(Collectors.toList());
     }
 
@@ -293,10 +326,14 @@ public class GroupService {
         return mapToResponse(group, userId);
     }
 
-    // Mapping Helper
+    // Mapping Helper - For single group (loads members from DB)
     private GroupDTO.GroupResponse mapToResponse(Group group, Long currentUserId) {
         List<GroupMember> activeMembers = groupMemberRepository.findActiveMembersByGroupId(group.getId());
-        
+        return mapToResponseWithMembers(group, currentUserId, activeMembers);
+    }
+    
+    // Mapping Helper - For bulk operations (uses pre-loaded members)
+    private GroupDTO.GroupResponse mapToResponseWithMembers(Group group, Long currentUserId, List<GroupMember> activeMembers) {
         boolean isMember = false;
         boolean isAdmin = false;
         

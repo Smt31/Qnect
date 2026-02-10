@@ -79,6 +79,7 @@ public class User {
         joinColumns = @JoinColumn(name = "user_id"),
         inverseJoinColumns = @JoinColumn(name = "topic_id")
     )
+    @org.hibernate.annotations.BatchSize(size = 25)
     @Builder.Default
     private java.util.Set<Topic> topics = new java.util.HashSet<>();
 

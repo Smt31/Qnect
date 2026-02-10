@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken, API_URL } from '../api';
-import { useFeed, useCurrentUser, useVoteQuestion, useBookmarkPost, useUnbookmarkPost, useCreateQuestion, useDeleteQuestion, useFollowUser, useUnfollowUser } from '../api/queryHooks';
+import { useFeed, useTrending, useUserSuggestions, useCurrentUser, useVoteQuestion, useBookmarkPost, useUnbookmarkPost, useCreateQuestion, useDeleteQuestion, useFollowUser, useUnfollowUser } from '../api/queryHooks';
 import Navbar from '../components/Home/Navbar';
 import FeedImage from '../components/FeedImage';
 import LeftSidebar from '../components/Home/LeftSidebar';
@@ -27,7 +27,17 @@ export default function HomePage() {
 
   const [activeTab, setActiveTab] = useState(savedState?.activeTab || 'FOR_YOU');
 
-  const { data: feedData, isLoading: loading, isError, refetch } = useFeed(activeTab, 0, 10);
+  const { data: currentUser } = useCurrentUser();
+  const { data: feedData, isLoading: loading, isError, refetch, isRefetching } = useFeed(activeTab, 0, 10);
+  const { data: trendingData } = useTrending();
+  const { data: suggestionsData } = useUserSuggestions();
+
+  // Fallback to currentUser if feedData isn't loaded yet
+  const user = feedData?.user || currentUser;
+
+  // ... (keeping other code)
+
+
 
   useEffect(() => {
     const token = getAuthToken();
@@ -261,223 +271,10 @@ export default function HomePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#FFF5F6]">
-        <Navbar user={null} />
-        <div className="w-full pt-6 pb-24 md:pb-6">
-          <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-[16rem_minmax(0,1fr)] md:gap-x-0 lg:grid-cols-[16rem_minmax(0,1fr)_16rem] lg:gap-y-0">
-            {/* Left Sidebar Skeleton */}
-            <aside className="bg-white text-gray-900 px-4 py-5 md:sticky md:top-16 md:h-[calc(100vh-4rem)] md:overflow-y-auto md:border-r md:border-gray-200">
-              <div className="animate-pulse flex flex-col gap-6">
-                <div>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-gray-200 rounded-full size-12"></div>
-                    <div className="flex flex-col gap-2">
-                      <div className="h-4 bg-gray-200 rounded w-24"></div>
-                      <div className="h-3 bg-gray-100 rounded w-16"></div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 border-t border-gray-200 pt-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="h-3 bg-gray-100 rounded w-8"></div>
-                      <div className="h-4 bg-gray-200 rounded w-6"></div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="h-3 bg-gray-100 rounded w-12"></div>
-                      <div className="h-4 bg-gray-200 rounded w-4"></div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="h-3 bg-gray-100 rounded w-16"></div>
-                      <div className="h-4 bg-gray-200 rounded w-8"></div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-10 bg-gray-100 rounded-md"></div>
-                  ))}
-                </div>
-                <div className="flex flex-col gap-3 pt-4 border-t border-gray-200">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="h-4 bg-gray-100 rounded w-3/4"></div>
-                  ))}
-                </div>
-              </div>
-            </aside>
-
-            {/* Main Feed Skeleton */}
-            <main className="min-w-0 md:px-6">
-              <div className="flex flex-col gap-4">
-                {/* Ask Question Composer Skeleton */}
-                <div className="bg-white p-4">
-                  <div className="animate-pulse flex items-center gap-3">
-                    <div className="bg-gray-200 rounded-full size-10"></div>
-                    <div className="flex-1 h-10 bg-gray-100 rounded-full"></div>
-                    <div className="h-10 w-20 bg-gray-200 rounded-lg"></div>
-                  </div>
-                </div>
-
-                {/* Question Feed Skeleton */}
-                <div>
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="py-3 border-b border-gray-100">
-                      <div className="animate-pulse">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-gray-200 rounded-full size-10"></div>
-                            <div className="flex flex-col gap-2">
-                              <div className="h-4 bg-gray-200 rounded w-24"></div>
-                              <div className="h-3 bg-gray-200 rounded w-16"></div>
-                            </div>
-                          </div>
-                          <div className="h-3 bg-gray-200 rounded w-16"></div>
-                        </div>
-                        <div className="mb-3">
-                          <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
-                          <div className="h-4 bg-gray-200 rounded w-full mb-1"></div>
-                          <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          <div className="h-6 bg-gray-100 rounded-full w-16"></div>
-                          <div className="h-6 bg-gray-100 rounded-full w-20"></div>
-                          <div className="h-6 bg-gray-100 rounded-full w-12"></div>
-                        </div>
-                        <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
-                          <div className="flex items-center gap-1">
-                            <div className="h-5 w-5 bg-gray-100 rounded"></div>
-                            <div className="h-4 bg-gray-100 rounded w-4"></div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <div className="h-5 w-5 bg-gray-100 rounded"></div>
-                            <div className="h-4 bg-gray-100 rounded w-4"></div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <div className="h-5 w-5 bg-gray-100 rounded"></div>
-                            <div className="h-4 bg-gray-100 rounded w-6"></div>
-                          </div>
-                          <div className="flex items-center gap-1 ml-auto">
-                            <div className="h-5 w-5 bg-gray-100 rounded"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </main>
-
-            {/* Right Column Skeleton */}
-            <aside className="md:col-span-2 lg:col-span-1 self-start px-4 md:px-6 lg:px-0 lg:pl-6 lg:pr-4">
-              <div className="flex flex-col gap-6 lg:sticky lg:top-16">
-                {/* Trending Today Skeleton */}
-                <div className="bg-white p-4">
-                  <div className="animate-pulse">
-                    <div className="h-5 bg-gray-200 rounded w-32 mb-4"></div>
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex items-start gap-3 py-3 border-b border-gray-100">
-                        <div className="h-4 bg-gray-100 rounded w-6 mt-1"></div>
-                        <div className="flex-1">
-                          <div className="h-4 bg-gray-200 rounded w-4/5 mb-2"></div>
-                          <div className="h-3 bg-gray-100 rounded w-2/3"></div>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="h-4 bg-gray-200 rounded w-20 mt-2 ml-auto"></div>
-                  </div>
-                </div>
-
-                {/* Who to Follow Skeleton */}
-                <div className="bg-white p-4">
-                  <div className="animate-pulse">
-                    <div className="h-5 bg-gray-200 rounded w-32 mb-4"></div>
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-gray-200 rounded-full size-9"></div>
-                          <div className="flex flex-col gap-1">
-                            <div className="h-4 bg-gray-200 rounded w-20"></div>
-                            <div className="h-3 bg-gray-200 rounded w-16"></div>
-                          </div>
-                        </div>
-                        <div className="h-8 bg-gray-100 rounded-full w-20"></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Release Notes Skeleton */}
-                <div className="bg-white p-4">
-                  <div className="animate-pulse">
-                    <div className="h-5 bg-gray-200 rounded w-24 mb-3"></div>
-                    <div className="flex flex-col gap-2">
-                      <div className="h-3 bg-gray-100 rounded w-full"></div>
-                      <div className="h-3 bg-gray-100 rounded w-5/6"></div>
-                      <div className="h-3 bg-gray-100 rounded w-4/5"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="min-h-screen bg-[#FFF5F6]">
-        <Navbar user={feedData?.user} />
-        <div className="max-w-[1200px] mx-auto px-4 md:px-6 py-6 flex items-center justify-center">
-          <div className="max-w-md w-full bg-white p-8 text-center border border-gray-100">
-            <div className="mx-auto size-16 bg-[#FFECEC] rounded-full flex items-center justify-center mb-4">
-              <svg className="text-[#FF6B6B]" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Error Loading Feed</h3>
-            <p className="text-gray-500 mb-6">There was an error loading the feed. Please try again.</p>
-            <button
-              className="px-4 py-2 bg-[#FF6B6B] hover:bg-[#FF5252] text-white font-medium rounded-lg transition-colors"
-              onClick={() => refetch()}
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!feedData) {
-    return (
-      <div className="min-h-screen bg-[#FFF5F6]">
-        <Navbar user={feedData?.user} />
-        <div className="max-w-[1200px] mx-auto px-4 md:px-6 py-6 flex items-center justify-center">
-          <div className="max-w-md w-full bg-white p-8 text-center border border-gray-100">
-            <div className="mx-auto size-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <svg className="text-gray-400" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">No Data Available</h3>
-            <p className="text-gray-500 mb-6">Unable to load feed data.</p>
-            <button
-              className="px-4 py-2 bg-[#FF6B6B] hover:bg-[#FF5252] text-white font-medium rounded-lg transition-colors"
-              onClick={() => refetch()}
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FFF1F2' }}>
-      <Navbar user={feedData.user} />
+      <Navbar user={user} />
 
       {/* Create Post / Ask Question Modal */}
       {askOpen && (
@@ -639,7 +436,7 @@ export default function HomePage() {
 
       <div className="flex">
         {/* Left Sidebar */}
-        <LeftSidebar user={feedData.user} onAskQuestion={() => setAskOpen(true)} />
+        <LeftSidebar user={user} onAskQuestion={() => setAskOpen(true)} />
 
         {/* Main Content - Offset for fixed sidebar (Left only now) */}
         <main className="flex-1 md:ml-64 p-6 max-w-5xl">
@@ -647,9 +444,15 @@ export default function HomePage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Top Posts for You</h2>
-              <button className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+              <button
+                onClick={() => refetch()}
+                className={`p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-all ${isRefetching ? 'animate-spin text-red-500 bg-red-50' : ''}`}
+                style={{ animationDirection: 'reverse' }}
+                title="Refresh Feed"
+                disabled={isRefetching}
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </button>
             </div>
@@ -702,14 +505,32 @@ export default function HomePage() {
 
           {/* Question Feed */}
           <div className="space-y-4">
-            {feedData.feed && feedData.feed.length > 0 ? (
+            {loading ? (
+              <FeedSkeleton />
+            ) : isError ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                <div className="mx-auto size-12 bg-red-50 rounded-full flex items-center justify-center mb-4">
+                  <svg className="text-red-500" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Error Loading Feed</h3>
+                <p className="text-gray-500 mb-4">Something went wrong while loading the posts.</p>
+                <button
+                  className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 font-medium rounded-lg transition-colors"
+                  onClick={() => refetch()}
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : feedData?.feed && feedData.feed.length > 0 ? (
               feedData.feed
                 .filter(p => !featuredPost || p.id !== featuredPost.id)
                 .map((post) => (
                   <FeedCard
                     key={post.id}
                     post={post}
-                    currentUserId={feedData.user?.userId}
+                    currentUserId={user?.userId}
                     onVote={handleVote}
                     onDelete={handleDeletePost}
                     onShare={handleShare}
@@ -751,12 +572,16 @@ export default function HomePage() {
           </div>
         </main>
 
-        <RightSidebar
-          trending={feedData.trending}
-          suggestions={feedData.suggestions}
-          followedUsers={followedUsers}
-          onFollow={handleFollow}
-        />
+        {trendingData && suggestionsData ? (
+          <RightSidebar
+            trending={trendingData.content || []}
+            suggestions={suggestionsData}
+            followedUsers={followedUsers}
+            onFollow={handleFollow}
+          />
+        ) : (
+          <RightSidebarSkeleton />
+        )}
 
       </div >
 
@@ -771,3 +596,117 @@ export default function HomePage() {
     </div >
   );
 }
+
+
+
+const FeedSkeleton = () => (
+  <div className="flex flex-col gap-4">
+    {/* Ask Question Composer Skeleton */}
+    <div className="bg-white p-4">
+      <div className="animate-pulse flex items-center gap-3">
+        <div className="bg-gray-200 rounded-full size-10"></div>
+        <div className="flex-1 h-10 bg-gray-100 rounded-full"></div>
+        <div className="h-10 w-20 bg-gray-200 rounded-lg"></div>
+      </div>
+    </div>
+
+    {/* Question Feed Skeleton */}
+    <div>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="py-3 border-b border-gray-100">
+          <div className="animate-pulse">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-gray-200 rounded-full size-10"></div>
+                <div className="flex flex-col gap-2">
+                  <div className="h-4 bg-gray-200 rounded w-24"></div>
+                  <div className="h-3 bg-gray-100 rounded w-16"></div>
+                </div>
+              </div>
+              <div className="h-3 bg-gray-200 rounded w-16"></div>
+            </div>
+            <div className="mb-3">
+              <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-full mb-1"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <div className="h-6 bg-gray-100 rounded-full w-16"></div>
+              <div className="h-6 bg-gray-100 rounded-full w-20"></div>
+              <div className="h-6 bg-gray-100 rounded-full w-12"></div>
+            </div>
+            <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-1">
+                <div className="h-5 w-5 bg-gray-100 rounded"></div>
+                <div className="h-4 bg-gray-100 rounded w-4"></div>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-5 w-5 bg-gray-100 rounded"></div>
+                <div className="h-4 bg-gray-100 rounded w-4"></div>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-5 w-5 bg-gray-100 rounded"></div>
+                <div className="h-4 bg-gray-100 rounded w-6"></div>
+              </div>
+              <div className="flex items-center gap-1 ml-auto">
+                <div className="h-5 w-5 bg-gray-100 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const RightSidebarSkeleton = () => (
+  <div className="flex flex-col gap-6 lg:sticky lg:top-16">
+    {/* Trending Today Skeleton */}
+    <div className="bg-white p-4">
+      <div className="animate-pulse">
+        <div className="h-5 bg-gray-200 rounded w-32 mb-4"></div>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex items-start gap-3 py-3 border-b border-gray-100">
+            <div className="h-4 bg-gray-100 rounded w-6 mt-1"></div>
+            <div className="flex-1">
+              <div className="h-4 bg-gray-200 rounded w-4/5 mb-2"></div>
+              <div className="h-3 bg-gray-100 rounded w-2/3"></div>
+            </div>
+          </div>
+        ))}
+        <div className="h-4 bg-gray-200 rounded w-20 mt-2 ml-auto"></div>
+      </div>
+    </div>
+
+    {/* Who to Follow Skeleton */}
+    <div className="bg-white p-4">
+      <div className="animate-pulse">
+        <div className="h-5 bg-gray-200 rounded w-32 mb-4"></div>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="bg-gray-200 rounded-full size-9"></div>
+              <div className="flex flex-col gap-1">
+                <div className="h-4 bg-gray-200 rounded w-20"></div>
+                <div className="h-3 bg-gray-100 rounded w-16"></div>
+              </div>
+            </div>
+            <div className="h-8 bg-gray-100 rounded-full w-20"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Release Notes Skeleton */}
+    <div className="bg-white p-4">
+      <div className="animate-pulse">
+        <div className="h-5 bg-gray-200 rounded w-24 mb-3"></div>
+        <div className="flex flex-col gap-2">
+          <div className="h-3 bg-gray-100 rounded w-full"></div>
+          <div className="h-3 bg-gray-100 rounded w-5/6"></div>
+          <div className="h-3 bg-gray-100 rounded w-4/5"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+);

@@ -41,7 +41,7 @@ public class FeedController {
     @GetMapping({"/feed", "/home/questions"})
     public ResponseEntity<FeedResponseDto> getFeed(
             Authentication authentication,
-            @RequestParam(defaultValue = "FOR_YOU") String tabStr,
+            @RequestParam(value = "tab", defaultValue = "FOR_YOU") String tabStr,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {

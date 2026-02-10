@@ -36,6 +36,17 @@ export const useFeed = (tab = 'FOR_YOU', page = 0, size = 10) => {
   });
 };
 
+export const useTrending = (page = 0, size = 5) => {
+  return useQuery({
+    queryKey: ['trending', page, size],
+    queryFn: () => feedApi.getTrending(page, size),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 15 * 60 * 1000, // 15 minutes
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+};
+
 // Question Queries
 export const useQuestion = (id) => {
   return useQuery({
