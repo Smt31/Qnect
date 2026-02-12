@@ -22,10 +22,37 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     
     @Query("SELECT p FROM Post p WHERE :tag MEMBER OF p.tags ORDER BY p.createdAt DESC")
     Page<Post> findByTagOrderByCreatedAtDesc(@Param("tag") String tag, Pageable pageable);
+
+    @Query("SELECT p FROM Post p JOIN p.tags t WHERE LOWER(t) = LOWER(:tag) ORDER BY p.createdAt DESC")
+    Page<Post> findByTagIgnoreCaseOrderByCreatedAtDesc(@Param("tag") String tag, Pageable pageable);
     
     Page<Post> findByAuthorOrderByCreatedAtDesc(User author, Pageable pageable);
     
     Page<Post> findByAuthorAndTypeOrderByCreatedAtDesc(User author, PostType type, Pageable pageable);
+    
+    @Query("SELECT p FROM Post p JOIN p.topics t WHERE t.id = :topicId ORDER BY p.createdAt DESC")
+    Page<Post> findByTopics_IdOrderByCreatedAtDesc(@Param("topicId") Long topicId, Pageable pageable);
+
+    @Query(value = """
+            SELECT p.* 
+            FROM posts p 
+            JOIN post_topics pt ON p.id = pt.post_id 
+            WHERE pt.topic_id = :topicId 
+            ORDER BY (
+                (p.upvotes * 1.0) + 
+                (p.comments_count * 2.0) + 
+                (p.views_count * 0.2) + 
+                CASE 
+                    WHEN p.created_at > NOW() - INTERVAL '6 hours' THEN 5 
+                    WHEN p.created_at > NOW() - INTERVAL '24 hours' THEN 3 
+                    WHEN p.created_at > NOW() - INTERVAL '72 hours' THEN 1 
+                    ELSE 0 
+                END
+            ) DESC
+            """, 
+            countQuery = "SELECT COUNT(*) FROM posts p JOIN post_topics pt ON p.id = pt.post_id WHERE pt.topic_id = :topicId",
+            nativeQuery = true)
+    Page<Post> findByTopicIdRanked(@Param("topicId") Long topicId, Pageable pageable);
     
     @Query("SELECT p FROM Post p WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.content) LIKE LOWER(CONCAT('%', :query, '%'))")
     Page<Post> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(@Param("query") String title, @Param("query") String content, Pageable pageable);
@@ -53,6 +80,27 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // For You feed (engagement-ranked, excludes own posts)
     @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
     Page<Post> findForYouPostsExcludingUser(@Param("userId") Long userId, Pageable pageable);
+
+    @Query(value = """
+            SELECT p.* 
+            FROM posts p 
+            JOIN post_tags pt ON p.id = pt.post_id 
+            WHERE LOWER(pt.tag) = LOWER(:tag) 
+            ORDER BY (
+                (p.upvotes * 1.0) + 
+                (p.comments_count * 2.0) + 
+                (p.views_count * 0.2) + 
+                CASE 
+                    WHEN p.created_at > NOW() - INTERVAL '6 hours' THEN 5 
+                    WHEN p.created_at > NOW() - INTERVAL '24 hours' THEN 3 
+                    WHEN p.created_at > NOW() - INTERVAL '72 hours' THEN 1 
+                    ELSE 0 
+                END
+            ) DESC
+            """, 
+            countQuery = "SELECT COUNT(*) FROM posts p JOIN post_tags pt ON p.id = pt.post_id WHERE LOWER(pt.tag) = LOWER(:tag)",
+            nativeQuery = true)
+    Page<Post> findByTagIgnoreCaseRanked(@Param("tag") String tag, Pageable pageable);
 
     // Unanswered questions (only QUESTION type, excludes own questions and questions with ANY comments)
     @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.type = com.example.Qpoint.models.PostType.QUESTION AND p.author.userId <> :userId AND p.commentsCount = 0 ORDER BY p.createdAt DESC")

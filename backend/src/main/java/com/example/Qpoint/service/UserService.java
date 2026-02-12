@@ -520,9 +520,16 @@ public class UserService {
         com.example.Qpoint.models.Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new RuntimeException("Topic not found"));
 
-        user.getTopics().remove(topic);
+        // Initialize collection to avoid LazyInitializationException
+        java.util.Set<com.example.Qpoint.models.Topic> topics = user.getTopics();
+        if (topics != null) {
+            topics.size(); // Force initialization
+            topics.remove(topic);
+        }
+
         // Also remove from skills for backward compatibility
         if (user.getSkills() != null) {
+            user.getSkills().size(); // Force initialization
             user.getSkills().remove(topic.getName());
         }
 

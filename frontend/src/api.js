@@ -138,6 +138,7 @@ export const questionApi = {
   updateQuestion: (id, questionData) => put(`/api/questions/${id}`, questionData, true),
   deleteQuestion: (id) => del(`/api/questions/${id}`, true),
   getAllQuestions: (page = 0, size = 10) => get(`/api/questions?page=${page}&size=${size}`, true),
+  getQuestionsByTopic: (topicId, page = 0, size = 10) => get(`/api/questions/topic/${topicId}?page=${page}&size=${size}`, true),
   searchQuestions: (query, tag, userId, page = 0, size = 10) => {
     const params = new URLSearchParams();
     if (query) params.append('query', query);
@@ -240,6 +241,7 @@ export const userApi = {
 };
 
 export const topicApi = {
+  getTopic: (id) => get(`/api/topics/${id}`, true),
   searchTopics: (query, page = 0, size = 10) => get(`/api/topics/search?query=${encodeURIComponent(query)}&page=${page}&size=${size}`, true),
   getAllTopics: (page = 0, size = 10) => get(`/api/topics?page=${page}&size=${size}`, true),
 };

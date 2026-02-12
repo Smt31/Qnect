@@ -380,6 +380,28 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
+    public Page<FeedPostDto> getPostsByTopic(Long topicId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Post> posts = postRepository.findByTopicIdRanked(topicId, pageable);
+        
+        // Fallback for legacy posts: If no posts found via topic relation, search by tag name
+        if (posts.isEmpty() && page == 0) {
+            com.example.Qpoint.models.Topic topic = topicRepository.findById(topicId).orElse(null);
+            if (topic != null) {
+                // Try case-insensitive tag match with RANKING
+                posts = postRepository.findByTagIgnoreCaseRanked(topic.getName(), pageable);
+                
+                // If still empty, try strip hash if present in name
+                if (posts.isEmpty() && topic.getName().startsWith("#")) {
+                     posts = postRepository.findByTagIgnoreCaseRanked(topic.getName().substring(1), pageable);
+                }
+            }
+        }
+        
+        return posts.map(post -> convertToFeedPostDto(post, null));
+    }
+
+    @Transactional(readOnly = true)
     @Cacheable(value = "posts", key = "#postId")
     public FeedPostDto getPostById(Long postId) {
         Post post = postRepository.findById(postId)

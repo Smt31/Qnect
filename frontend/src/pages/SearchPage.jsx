@@ -196,11 +196,11 @@ const SearchPage = () => {
           {!loading && !error && searchResults.length > 0 && (
             <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
               <h2 className="text-xl font-bold mb-4">
-                {searchResults.length} {activeTab === 'posts' ? 'post' : 'user'}{searchResults.length !== 1 ? 's' : ''} found
+                {searchResults.length} {activeTab === 'posts' ? 'post' : activeTab === 'topics' ? 'topic' : 'user'}{searchResults.length !== 1 ? 's' : ''} found
               </h2>
 
               <div className="space-y-6">
-                {activeTab === 'posts' ? (
+                {activeTab === 'posts' && (
                   // Posts List
                   searchResults.map((question) => (
                     <div key={question.id} className="border-b border-gray-100 pb-6 last:border-0 last:pb-0">
@@ -246,7 +246,9 @@ const SearchPage = () => {
                       </div>
                     </div>
                   ))
-                ) : (
+                )}
+
+                {activeTab === 'users' && (
                   // Users List
                   searchResults.map((user) => (
                     <div key={user.userId} className="flex items-center justify-between border-b border-gray-100 pb-6 last:border-0 last:pb-0">
@@ -278,7 +280,9 @@ const SearchPage = () => {
 
                 {activeTab === 'topics' && (
                   searchResults.map(topic => (
-                    <TopicResultItem key={topic.id} topic={topic} />
+                    <div key={topic.id} className="w-full">
+                      <TopicResultItem topic={topic} />
+                    </div>
                   ))
                 )}
               </div>
@@ -291,6 +295,7 @@ const SearchPage = () => {
 };
 
 const TopicResultItem = ({ topic }) => {
+  const navigate = useNavigate();
   const { data: user } = useCurrentUser();
   const followMutation = useFollowTopic();
   const unfollowMutation = useUnfollowTopic();
@@ -309,7 +314,12 @@ const TopicResultItem = ({ topic }) => {
     <div className="flex items-center justify-between border-b border-gray-100 pb-6 last:border-0 last:pb-0">
       <div>
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          #{topic.name}
+          <span
+            className="cursor-pointer hover:text-rose-500 transition-colors"
+            onClick={() => navigate(`/topic/${topic.id}`)}
+          >
+            #{topic.name}
+          </span>
         </h3>
         <p className="text-sm text-gray-500">{topic.postCount} posts</p>
         <p className="text-sm text-gray-600 mt-1">{topic.description || "No description"}</p>

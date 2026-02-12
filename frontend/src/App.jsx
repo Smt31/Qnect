@@ -15,6 +15,7 @@ import BookmarksPage from './pages/BookmarksPage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ChatPage from './pages/ChatPage';
+import TopicPage from './pages/TopicPage';
 import NewsPage from './pages/NewsPage';
 
 // Export queryClient so it can be used to clear cache on login/logout
@@ -58,6 +59,7 @@ export default function App() {
                 <Route path="/profile/:id" element={<ProfilePage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/search" element={<SearchPage />} />
+                <Route path="/topic/:id" element={<TopicPage />} />
                 <Route path="/news" element={<NewsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

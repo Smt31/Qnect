@@ -106,6 +106,14 @@ public class QuestionsController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/topic/{topicId}")
+    public ResponseEntity<Page<FeedPostDto>> getQuestionsByTopic(@PathVariable Long topicId,
+                                                                 @RequestParam(defaultValue = "0") int page,
+                                                                 @RequestParam(defaultValue = "10") int size) {
+        Page<FeedPostDto> questions = postService.getPostsByTopic(topicId, page, size);
+        return ResponseEntity.ok(questions);
+    }
+
     @GetMapping("/search")
     public ResponseEntity<Page<FeedPostDto>> searchQuestions(
             @RequestParam(required = false) String query,

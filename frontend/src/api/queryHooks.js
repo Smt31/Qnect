@@ -21,15 +21,70 @@ export const useSearchTopics = (query, page = 0, size = 10, enabled = true) => {
   });
 };
 
+export const useTopic = (id) => {
+  return useQuery({
+    queryKey: ['topic', id],
+    queryFn: () => topicApi.getTopic(id),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useTopicQuestions = (topicId, page = 0, size = 10) => {
+  return useQuery({
+    queryKey: ['topic-questions', topicId, page, size],
+    queryFn: () => questionApi.getQuestionsByTopic(topicId, page, size),
+    enabled: !!topicId,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
 // Moving follow/unfollow topic hooks here for consistency, though API is in userApi
 export const useFollowTopic = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (topicId) => userApi.followTopic(topicId),
-    onSuccess: () => {
+    onMutate: async (topicId) => {
+      await queryClient.cancelQueries({ queryKey: ['topic', topicId] });
+      await queryClient.cancelQueries({ queryKey: ['current-user'] });
+
+      const previousTopic = queryClient.getQueryData(['topic', topicId]);
+      const previousUser = queryClient.getQueryData(['current-user']);
+
+      // Optimistically update topic followers count
+      queryClient.setQueryData(['topic', topicId], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          followersCount: (old.followersCount || 0) + 1,
+        };
+      });
+
+      // Optimistically update current user's topics list
+      queryClient.setQueryData(['current-user'], (old) => {
+        if (!old) return old;
+        const newTopic = previousTopic || { id: topicId, name: '...' }; // Placeholder if not in cache
+        return {
+          ...old,
+          topics: [...(old.topics || []), newTopic]
+        };
+      });
+
+      return { previousTopic, previousUser };
+    },
+    onError: (err, topicId, context) => {
+      if (context?.previousTopic) {
+        queryClient.setQueryData(['topic', topicId], context.previousTopic);
+      }
+      if (context?.previousUser) {
+        queryClient.setQueryData(['current-user'], context.previousUser);
+      }
+    },
+    onSettled: (data, error, topicId) => {
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['topic', topicId] });
       // Invalidate feed to show new items
       queryClient.invalidateQueries({ queryKey: ['feed', 'FOR_YOU'] });
     }
@@ -41,9 +96,45 @@ export const useUnfollowTopic = () => {
 
   return useMutation({
     mutationFn: (topicId) => userApi.unfollowTopic(topicId),
-    onSuccess: () => {
+    onMutate: async (topicId) => {
+      await queryClient.cancelQueries({ queryKey: ['topic', topicId] });
+      await queryClient.cancelQueries({ queryKey: ['current-user'] });
+
+      const previousTopic = queryClient.getQueryData(['topic', topicId]);
+      const previousUser = queryClient.getQueryData(['current-user']);
+
+      // Optimistically update topic followers count
+      queryClient.setQueryData(['topic', topicId], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          followersCount: Math.max(0, (old.followersCount || 0) - 1),
+        };
+      });
+
+      // Optimistically update current user's topics list
+      queryClient.setQueryData(['current-user'], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          topics: (old.topics || []).filter(t => t.id != topicId)
+        };
+      });
+
+      return { previousTopic, previousUser };
+    },
+    onError: (err, topicId, context) => {
+      if (context?.previousTopic) {
+        queryClient.setQueryData(['topic', topicId], context.previousTopic);
+      }
+      if (context?.previousUser) {
+        queryClient.setQueryData(['current-user'], context.previousUser);
+      }
+    },
+    onSettled: (data, error, topicId) => {
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['topic', topicId] });
       queryClient.invalidateQueries({ queryKey: ['feed', 'FOR_YOU'] });
     }
   });
