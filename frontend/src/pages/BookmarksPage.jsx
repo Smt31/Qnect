@@ -12,7 +12,7 @@ export default function BookmarksPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [askOpen, setAskOpen] = useState(false); // Can be lifted or handled locally if needed, but for now just redirect or dummy
+  // const [askOpen, setAskOpen] = useState(false); // Removed
 
   useEffect(() => {
     const token = getAuthToken();
@@ -83,7 +83,7 @@ export default function BookmarksPage() {
       <Navbar user={me} />
 
       <div className="flex">
-        <LeftSidebar user={me} onAskQuestion={() => navigate('/home')} />
+        <LeftSidebar user={me} />
         {/* Redirect to home for asking question for simplicity, or we duplicate modal logic */}
 
         <main className="flex-1 md:ml-64 p-6 max-w-5xl">
@@ -132,7 +132,7 @@ export default function BookmarksPage() {
         </main>
       </div>
 
-      <MobileNav onAskQuestion={() => navigate('/home')} />
+      <MobileNav />
     </div>
   );
 }

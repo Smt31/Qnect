@@ -30,34 +30,40 @@ export const queryClient = new QueryClient({
   },
 });
 
+import { ModalProvider } from './context/ModalContext';
+import CreatePostModal from './components/CreatePostModal';
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <MobileSidebarProvider>
-          <div className="app">
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/verify" element={<VerifyPage />} />
-              <Route path="/home" element={<HomePage />} />
-              {/* /ask route shows the same authenticated home/feed + ask UI */}
-              <Route path="/ask" element={<HomePage />} />
-              <Route path="/question/:id" element={<QuestionPage />} />
-              <Route path="/my-questions" element={<MyQuestionsPage />} />
-              <Route path="/my-posts" element={<MyPostsPage />} />
-              <Route path="/bookmarks" element={<BookmarksPage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/profile/:id" element={<ProfilePage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="/news" element={<NewsPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </div>
+          <ModalProvider>
+            <div className="app">
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/verify" element={<VerifyPage />} />
+                <Route path="/home" element={<HomePage />} />
+                {/* /ask route shows the same authenticated home/feed + ask UI */}
+                <Route path="/ask" element={<HomePage />} />
+                <Route path="/question/:id" element={<QuestionPage />} />
+                <Route path="/my-questions" element={<MyQuestionsPage />} />
+                <Route path="/my-posts" element={<MyPostsPage />} />
+                <Route path="/bookmarks" element={<BookmarksPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/chat" element={<ChatPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/profile/:id" element={<ProfilePage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/news" element={<NewsPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+              <CreatePostModal />
+            </div>
+          </ModalProvider>
         </MobileSidebarProvider>
       </BrowserRouter>
     </QueryClientProvider>

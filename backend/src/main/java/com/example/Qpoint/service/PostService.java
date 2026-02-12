@@ -283,7 +283,35 @@ public class PostService {
         switch (tab) {
             case RECENT -> posts = postRepository.findAllExcludingUser(userId, pageable);
             case UNANSWERED -> posts = postRepository.findUnansweredPostsExcludingUser(userId, pageable);
-            case FOR_YOU -> posts = postRepository.findForYouPostsExcludingUser(userId, pageable);
+            case FOR_YOU -> {
+                // 1. Get Ranked IDs
+                Page<Long> postIdsPage = postRepository.findPersonalizedFeedIds(userId, pageable);
+                
+                if (postIdsPage.isEmpty()) {
+                    posts = Page.empty(pageable);
+                } else {
+                    // 2. Fetch Entities (with Author)
+                    List<Long> ids = postIdsPage.getContent();
+                    List<Post> fetchedPosts = postRepository.findByIdsWithAuthor(ids);
+                    
+                    // 3. Re-sort to match ranking order (Fetched list isn't guaranteed to match IN clause order)
+                    java.util.Map<Long, Post> postMap = fetchedPosts.stream()
+                            .collect(java.util.stream.Collectors.toMap(Post::getId, java.util.function.Function.identity()));
+                    
+                    List<Post> orderedPosts = ids.stream()
+                            .map(postMap::get)
+                            .filter(java.util.Objects::nonNull)
+                            .collect(java.util.stream.Collectors.toList());
+                            
+                    posts = new org.springframework.data.domain.PageImpl<>(orderedPosts, pageable, postIdsPage.getTotalElements());
+                    
+                    // Fallback to recent posts if personalized feed is empty (Cold Start)
+                    if (posts.isEmpty() && page == 0) {
+                         // Default to standard For You (based on engagement only, no time limit) or Recent
+                         posts = postRepository.findForYouPostsExcludingUser(userId, pageable);
+                    }
+                }
+            }
             default -> posts = postRepository.findForYouPostsExcludingUser(userId, pageable);
         }
 

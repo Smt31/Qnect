@@ -57,4 +57,9 @@ public class TopicService {
     public Iterable<Topic> getAll() {
         return topicRepository.findAll(Sort.by(Sort.Direction.DESC, "postCount"));
     }
+
+    public Page<Topic> searchTopics(String query, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "postCount"));
+        return topicRepository.findByNameContainingIgnoreCase(query, pageable);
+    }
 }

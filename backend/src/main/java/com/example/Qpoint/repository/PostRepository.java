@@ -70,6 +70,46 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     
     @Query(value = "SELECT post_id, tag FROM post_tags WHERE post_id IN :postIds", nativeQuery = true)
     List<Object[]> findTagsByPostIds(@Param("postIds") List<Long> postIds);
+
+    /**
+     * PERSONALIZED FEED ALGORITHM (Native SQL)
+     * Returns IDs of posts, ranked by parameters.
+     * Service layer will fetch full entities to ensure eager loading of Authors.
+     */
+    @Query(value = """
+            SELECT p.id 
+            FROM posts p
+            LEFT JOIN follows f ON p.author_id = f.following_id AND f.follower_id = :userId
+            LEFT JOIN (
+                SELECT pt.post_id, COUNT(ut.topic_id) as match_count
+                FROM post_topics pt
+                JOIN user_topics ut ON pt.topic_id = ut.topic_id AND ut.user_id = :userId
+                GROUP BY pt.post_id
+            ) tm ON p.id = tm.post_id
+            LEFT JOIN post_views pv ON p.id = pv.post_id AND pv.user_id = :userId
+            WHERE p.created_at > NOW() - INTERVAL '7 days'
+              AND p.author_id <> :userId
+              AND p.type <> 'NEWS_DISCUSSION'
+            ORDER BY (
+                LN(10 + (p.upvotes * 1) + (p.comments_count * 5) + (p.views_count * 0.1))
+                * POWER(1 + EXTRACT(EPOCH FROM (NOW() - p.created_at))/3600 / 12, -1.5)
+                * (CASE WHEN f.follower_id IS NOT NULL THEN 1.5 ELSE 1.0 END)
+                * POWER(1.3, LEAST(COALESCE(tm.match_count, 0), 3))
+                * (CASE WHEN pv.user_id IS NOT NULL THEN 0.5 ELSE 1.0 END)
+            ) DESC
+            """, 
+            countQuery = """
+            SELECT COUNT(*) 
+            FROM posts p
+            WHERE p.created_at > NOW() - INTERVAL '7 days'
+              AND p.author_id <> :userId
+              AND p.type <> 'NEWS_DISCUSSION'
+            """,
+            nativeQuery = true)
+    Page<Long> findPersonalizedFeedIds(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.id IN :ids")
+    List<Post> findByIdsWithAuthor(@Param("ids") List<Long> ids);
 }
 
 

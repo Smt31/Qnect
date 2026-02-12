@@ -33,4 +33,12 @@ public class TopicController {
         Topic topic = topicService.getTopicById(id);
         return ResponseEntity.ok(topic);
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<Page<Topic>> searchTopics(@RequestParam String query,
+                                                   @RequestParam(defaultValue = "0") int page,
+                                                   @RequestParam(defaultValue = "10") int size) {
+        Page<Topic> topics = topicService.searchTopics(query, page, size);
+        return ResponseEntity.ok(topics);
+    }
 }

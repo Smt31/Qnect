@@ -235,6 +235,13 @@ export const userApi = {
     if (!res.ok) throw new Error('Failed to delete profile picture');
   },
   updateTopics: (topics) => put('/api/users/me/topics', { topics }, true),
+  followTopic: (topicId) => post(`/api/users/topics/${topicId}`, {}, true),
+  unfollowTopic: (topicId) => del(`/api/users/topics/${topicId}`, true),
+};
+
+export const topicApi = {
+  searchTopics: (query, page = 0, size = 10) => get(`/api/topics/search?query=${encodeURIComponent(query)}&page=${page}&size=${size}`, true),
+  getAllTopics: (page = 0, size = 10) => get(`/api/topics?page=${page}&size=${size}`, true),
 };
 
 export const requestApi = {

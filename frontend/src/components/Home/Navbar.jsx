@@ -72,13 +72,13 @@ const Navbar = ({ user }) => {
         <div className="hidden md:flex flex-1 items-center justify-center px-4">
           <div className="w-full max-w-2xl">
             <form onSubmit={handleSearchSubmit} className="w-full">
-              <label className="flex w-full items-center rounded-full bg-[#F6F6F6] px-3 h-10 border border-transparent focus-within:border-[#FF6B6B]/50 focus-within:ring-2 focus-within:ring-[#FF6B6B]/20 transition-all">
-                <svg className="text-[#8D5E60]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <label className="group flex w-full items-center rounded-full bg-gray-100/50 hover:bg-gray-100 px-4 h-11 border border-transparent focus-within:bg-white focus-within:border-rose-100 focus-within:ring-4 focus-within:ring-rose-500/10 transition-all duration-300">
+                <svg className="text-gray-400 group-focus-within:text-rose-500 transition-colors" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
                 <input
-                  className="w-full bg-transparent border-none focus:ring-0 text-sm px-2 text-[#1A1A1A] placeholder:text-[#8D5E60]"
+                  className="w-full bg-transparent border-none outline-none focus:ring-0 text-sm px-3 text-gray-800 placeholder:text-gray-400 h-full"
                   placeholder="Search questions, topics, or users…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

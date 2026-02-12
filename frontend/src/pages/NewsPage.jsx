@@ -55,7 +55,7 @@ export default function NewsPage() {
             <Navbar user={user} />
 
             <div className="flex">
-                <LeftSidebar user={user} onAskQuestion={() => navigate('/home')} />
+                <LeftSidebar user={user} />
 
                 <main className="flex-1 md:ml-64 p-6">
                     {/* Header */}
@@ -79,8 +79,8 @@ export default function NewsPage() {
                                     key={category.id || 'all'}
                                     onClick={() => setSelectedCategory(category.id)}
                                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedCategory === category.id
-                                            ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-md'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-md'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
                                 >
                                     <span className="mr-1.5">{category.icon}</span>
@@ -135,7 +135,7 @@ export default function NewsPage() {
                 </main>
             </div>
 
-            <MobileNav onAskQuestion={() => navigate('/home')} />
+            <MobileNav />
 
             {/* Discussion Modal */}
             <NewsDiscussionModal

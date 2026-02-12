@@ -58,7 +58,7 @@ export default function MyPostsPage() {
             <Navbar user={me} />
 
             <div className="flex">
-                <LeftSidebar user={me} onAskQuestion={() => navigate('/home')} />
+                <LeftSidebar user={me} />
 
                 <main className="flex-1 md:ml-64 p-6 max-w-5xl">
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
@@ -116,7 +116,7 @@ export default function MyPostsPage() {
                 </main>
             </div>
 
-            <MobileNav onAskQuestion={() => navigate('/home')} />
+            <MobileNav />
         </div>
     );
 }

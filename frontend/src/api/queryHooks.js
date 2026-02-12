@@ -2,13 +2,50 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   get, post, put, del,
   authApi, feedApi, questionApi, answerApi, commentApi,
-  voteApi, bookmarkApi, userApi, requestApi, notificationApi, chatApi
+  voteApi, bookmarkApi, userApi, topicApi, requestApi, notificationApi, chatApi
 } from '../api';
 
 // Authentication Queries
 export const useLogin = () => {
   return useMutation({
     mutationFn: ({ email, password }) => authApi.login(email, password),
+  });
+};
+
+export const useSearchTopics = (query, page = 0, size = 10, enabled = true) => {
+  return useQuery({
+    queryKey: ['topics', 'search', query, page, size],
+    queryFn: () => topicApi.searchTopics(query, page, size),
+    enabled: enabled && !!query,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+// Moving follow/unfollow topic hooks here for consistency, though API is in userApi
+export const useFollowTopic = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (topicId) => userApi.followTopic(topicId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      // Invalidate feed to show new items
+      queryClient.invalidateQueries({ queryKey: ['feed', 'FOR_YOU'] });
+    }
+  });
+};
+
+export const useUnfollowTopic = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (topicId) => userApi.unfollowTopic(topicId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['feed', 'FOR_YOU'] });
+    }
   });
 };
 
@@ -543,6 +580,7 @@ export const useUserProfile = (id) => {
     cacheTime: 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: false,
     retry: 1,
+    enabled: !!id,
   });
 };
 
@@ -554,6 +592,7 @@ export const useUserStats = (id) => {
     cacheTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
     retry: 1,
+    enabled: !!id,
   });
 };
 
@@ -675,6 +714,7 @@ export const useFollowStatus = (userId) => {
     queryKey: ['follow-status', userId],
     queryFn: () => userApi.getFollowStatus(userId),
     staleTime: 30 * 1000, // 30 seconds
+    enabled: !!userId,
   });
 };
 
@@ -686,6 +726,7 @@ export const useUserQuestions = (id, page = 0, size = 10) => {
     cacheTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
     retry: 1,
+    enabled: !!id,
   });
 };
 
@@ -697,6 +738,7 @@ export const useUserAnswers = (id, page = 0, size = 10) => {
     cacheTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
     retry: 1,
+    enabled: !!id,
   });
 };
 
@@ -708,6 +750,7 @@ export const useUserFollowers = (id) => {
     cacheTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
     retry: 1,
+    enabled: !!id,
   });
 };
 
@@ -719,6 +762,7 @@ export const useUserFollowing = (id) => {
     cacheTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
     retry: 1,
+    enabled: !!id,
   });
 };
 

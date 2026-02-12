@@ -87,7 +87,7 @@ export default function NotificationsPage() {
         <div className="min-h-screen bg-[#FFF5F6]">
             <Navbar user={currentUser} />
             <div className="flex">
-                {currentUser && <LeftSidebar user={currentUser} onAskQuestion={() => navigate('/home')} />}
+                {currentUser && <LeftSidebar user={currentUser} />}
 
                 <main className="flex-1 md:ml-64 p-6 max-w-4xl">
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -175,7 +175,7 @@ export default function NotificationsPage() {
                     </div>
                 </main>
             </div>
-            <MobileNav onAskQuestion={() => navigate('/home')} />
+            <MobileNav />
         </div>
     );
 }

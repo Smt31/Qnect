@@ -1,10 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMobileSidebar } from '../../context/MobileSidebarContext';
+import { useModal } from '../../context/ModalContext';
 
-export default function MobileNav({ onAskQuestion }) {
+export default function MobileNav() {
     const navigate = useNavigate();
     const location = useLocation();
     const { isOpen } = useMobileSidebar();
+    const { openPostModal } = useModal();
     const isActive = (path) => location.pathname === path;
 
     return (
@@ -28,7 +30,7 @@ export default function MobileNav({ onAskQuestion }) {
                 </svg>
                 <span className="text-xs">Search</span>
             </button>
-            <button className="flex flex-col items-center gap-1 text-gray-500" onClick={onAskQuestion}>
+            <button className="flex flex-col items-center gap-1 text-gray-500" onClick={openPostModal}>
                 <div className="size-10 bg-[#FF6B6B] rounded-full flex items-center justify-center -mt-4 shadow-md">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" className="text-white">
                         <line x1="12" y1="5" x2="12" y2="19" />

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMobileSidebar } from '../../context/MobileSidebarContext';
+import { useModal } from '../../context/ModalContext';
 import { groupApi } from '../../api';
 
-export default function LeftSidebar({ user, onAskQuestion }) {
+export default function LeftSidebar({ user }) {
     const navigate = useNavigate();
     const location = useLocation();
     const { isOpen, close } = useMobileSidebar();
+    const { openPostModal } = useModal();
     const [myPostsOpen, setMyPostsOpen] = useState(
         location.pathname.startsWith('/my-questions') || location.pathname.startsWith('/my-posts')
     );
@@ -99,7 +101,7 @@ export default function LeftSidebar({ user, onAskQuestion }) {
             {/* New Question Button */}
             <button
                 className="w-full mb-4 rounded-lg bg-gradient-to-r from-red-500 to-pink-500 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:from-red-600 hover:to-pink-600 shadow-md hover:shadow-lg"
-                onClick={() => { onAskQuestion(); close(); }}
+                onClick={() => { openPostModal(); close(); }}
             >
                 New Post
             </button>

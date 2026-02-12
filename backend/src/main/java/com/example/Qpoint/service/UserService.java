@@ -152,6 +152,7 @@ public class UserService {
         dto.setAnswersCount(updatedUser.getAnswersCount());
         dto.setSkills(updatedUser.getSkills() != null ? new java.util.ArrayList<>(updatedUser.getSkills()) : null);
         dto.setAllowPublicMessages(updatedUser.getAllowPublicMessages());
+        dto.setTopics(updatedUser.getTopics() != null ? new java.util.HashSet<>(updatedUser.getTopics()) : null);
 
         return dto;
     }
@@ -450,6 +451,7 @@ public class UserService {
         // transaction closes
         dto.setSkills(user.getSkills() != null ? new java.util.ArrayList<>(user.getSkills()) : null);
         dto.setAllowPublicMessages(user.getAllowPublicMessages());
+        dto.setTopics(user.getTopics() != null ? new java.util.HashSet<>(user.getTopics()) : null);
         return dto;
     }
 
@@ -482,6 +484,47 @@ public class UserService {
         user.setTopics(topics);
         // Sync skills list for backward compatibility
         user.setSkills(topicNames);
+
+        userRepository.save(user);
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "users", key = "#userId")
+    })
+    public void followTopic(Long userId, Long topicId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        com.example.Qpoint.models.Topic topic = topicRepository.findById(topicId)
+                .orElseThrow(() -> new RuntimeException("Topic not found"));
+
+        user.getTopics().add(topic);
+        // Also add to skills for backward compatibility if not present
+        if (user.getSkills() == null) {
+            user.setSkills(new java.util.ArrayList<>());
+        }
+        if (!user.getSkills().contains(topic.getName())) {
+            user.getSkills().add(topic.getName());
+        }
+
+        userRepository.save(user);
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "users", key = "#userId")
+    })
+    public void unfollowTopic(Long userId, Long topicId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        com.example.Qpoint.models.Topic topic = topicRepository.findById(topicId)
+                .orElseThrow(() -> new RuntimeException("Topic not found"));
+
+        user.getTopics().remove(topic);
+        // Also remove from skills for backward compatibility
+        if (user.getSkills() != null) {
+            user.getSkills().remove(topic.getName());
+        }
 
         userRepository.save(user);
     }

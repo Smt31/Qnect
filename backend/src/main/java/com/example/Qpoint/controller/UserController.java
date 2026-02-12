@@ -122,6 +122,38 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/topics/{topicId}")
+    public ResponseEntity<Void> followTopic(@PathVariable Long topicId, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof CustomUserDetails)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Long userId = ((CustomUserDetails) principal).getUserId();
+        userService.followTopic(userId, topicId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/topics/{topicId}")
+    public ResponseEntity<Void> unfollowTopic(@PathVariable Long topicId, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof CustomUserDetails)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Long userId = ((CustomUserDetails) principal).getUserId();
+        userService.unfollowTopic(userId, topicId);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/{id}/stats")
     public ResponseEntity<UserStatsDto> getUserStats(@PathVariable Long id) {
         UserStatsDto stats = userService.getUserStats(id);

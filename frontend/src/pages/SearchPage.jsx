@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getAuthToken, questionApi, userApi } from '../api';
+import { getAuthToken, questionApi, userApi, topicApi } from '../api';
+import { useCurrentUser, useFollowTopic, useUnfollowTopic } from '../api/queryHooks';
 
 const SearchPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('posts'); // 'posts' or 'users'
+  const [activeTab, setActiveTab] = useState('posts'); // 'posts', 'users', or 'topics'
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,8 +39,11 @@ const SearchPage = () => {
       if (tab === 'posts') {
         const response = await questionApi.searchQuestions(query);
         results = Array.isArray(response) ? response : (response.content || []);
-      } else {
+      } else if (tab === 'users') {
         const response = await userApi.searchUsers(query);
+        results = Array.isArray(response) ? response : (response.content || []);
+      } else if (tab === 'topics') {
+        const response = await topicApi.searchTopics(query);
         results = Array.isArray(response) ? response : (response.content || []);
       }
 
@@ -131,6 +135,15 @@ const SearchPage = () => {
                 onClick={() => handleTabChange('users')}
               >
                 Users
+              </button>
+              <button
+                className={`py-2 px-4 font-medium text-sm focus:outline-none ${activeTab === 'topics'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                onClick={() => handleTabChange('topics')}
+              >
+                Topics
               </button>
             </div>
           </div>
@@ -262,11 +275,55 @@ const SearchPage = () => {
                     </div>
                   ))
                 )}
+
+                {activeTab === 'topics' && (
+                  searchResults.map(topic => (
+                    <TopicResultItem key={topic.id} topic={topic} />
+                  ))
+                )}
               </div>
             </div>
           )}
         </main>
       </div>
+    </div>
+  );
+};
+
+const TopicResultItem = ({ topic }) => {
+  const { data: user } = useCurrentUser();
+  const followMutation = useFollowTopic();
+  const unfollowMutation = useUnfollowTopic();
+
+  const isFollowed = user?.topics?.some(t => t.id === topic.id) || (user?.skills?.includes(topic.name)); // simplified check
+
+  const handleToggle = () => {
+    if (isFollowed) {
+      unfollowMutation.mutate(topic.id);
+    } else {
+      followMutation.mutate(topic.id);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between border-b border-gray-100 pb-6 last:border-0 last:pb-0">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          #{topic.name}
+        </h3>
+        <p className="text-sm text-gray-500">{topic.postCount} posts</p>
+        <p className="text-sm text-gray-600 mt-1">{topic.description || "No description"}</p>
+      </div>
+      <button
+        onClick={handleToggle}
+        disabled={followMutation.isLoading || unfollowMutation.isLoading}
+        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isFollowed
+          ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          : 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100'
+          }`}
+      >
+        {isFollowed ? 'Following' : 'Follow'}
+      </button>
     </div>
   );
 };

@@ -9,19 +9,25 @@ import MobileNav from '../components/Home/MobileNav';
 import CompactFeedCard from '../components/Feed/CompactFeedCard';
 import Skeleton from '../components/common/Skeleton';
 import ImageModal from '../components/common/ImageModal';
+import TopicManager from '../components/profile/TopicManager';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { id } = useParams();
 
-  const { data: me } = useCurrentUser();
+  const { data: me, isLoading: meLoading } = useCurrentUser();
 
   // Determine the profile user ID (if no id param, use current user)
   const profileUserId = id && id !== String(me?.userId) ? Number(id) : me?.userId;
 
-  const { data: profileUser, isLoading: profileLoading, isError: profileError } = useUserProfile(profileUserId);
+  // If we don't have an ID and are still loading 'me', we should consider it loading
+  // Otherwise, useUserProfile will be disabled and return isLoading=false, 
+  // which causes the "Not Found" error to flicker.
+  const { data: profileUser, isLoading: userProfileLoading, isError: profileError } = useUserProfile(profileUserId);
   const { data: stats } = useUserStats(profileUserId);
+
+  const profileLoading = userProfileLoading || (meLoading && !id);
 
   const [postType, setPostType] = useState('ALL');
   const [posts, setPosts] = useState([]);
@@ -80,10 +86,11 @@ export default function ProfilePage() {
   const [followingLoading, setFollowingLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
 
-  // Topics Edit State
-  const [topics, setTopics] = useState([]);
-  const [isEditingTopics, setIsEditingTopics] = useState(false);
-  const [newTopic, setNewTopic] = useState('');
+  // Topics Edit State (Deprecated, using TopicManager now, but keeping for compatibility if any other logic uses it, though TopicManager ignores these)
+  // Actually, we can remove them to be clean.
+  // const [topics, setTopics] = useState([]);
+  // const [isEditingTopics, setIsEditingTopics] = useState(false);
+  // const [newTopic, setNewTopic] = useState('');
 
   const [error, setError] = useState('');
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -103,12 +110,6 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Effect to initialize topics when profile user data is loaded
-  useEffect(() => {
-    if (profileUser && profileUser.skills) {
-      setTopics(profileUser.skills);
-    }
-  }, [profileUser]);
 
   // Dedicated effects to fetch tab specific data if needed,
   // but for now let's just fetch Followers/Following when tab changes to them if they are empty
@@ -209,28 +210,6 @@ export default function ProfilePage() {
 
   // We need a better way to handle "Follow/Following" button state in lists.
   // In `HomePage`, we mainted a `followedUsers` map. We should do the same here.
-  const handleAddTopic = () => {
-    if (!newTopic.trim()) return;
-    if (topics.includes(newTopic.trim())) return;
-    const updated = [...topics, newTopic.trim()];
-    setTopics(updated);
-    setNewTopic('');
-  };
-
-  const handleRemoveTopic = (topic) => {
-    setTopics(topics.filter(t => t !== topic));
-  };
-
-  const handleSaveTopics = async () => {
-    try {
-      await userApi.updateTopics(topics);
-      setIsEditingTopics(false);
-    } catch (e) {
-      console.error(e);
-      alert('Failed to save topics');
-    }
-  };
-
   const [followedUsersMap, setFollowedUsersMap] = useState({});
 
   const toggleFollowMap = async (targetId) => {
@@ -284,7 +263,7 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-[#FFF1F2]">
         <Navbar user={me} />
         <div className="flex">
-          <LeftSidebar user={me} onAskQuestion={() => navigate('/home')} />
+          <LeftSidebar user={me} />
           <main className="flex-1 md:ml-64 p-4 md:p-6 bg-[#FFF1F2] min-h-screen">
             <div className="max-w-6xl mx-auto space-y-6">
               <Skeleton height="200px" className="w-full rounded-xl" variant="rect" />
@@ -302,7 +281,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (profileError || error || !profileUser) {
+  if (!profileLoading && (profileError || error || !profileUser)) {
     return (
       <div className="min-h-screen bg-[#FFF1F2]">
         <Navbar user={me} />
@@ -321,7 +300,7 @@ export default function ProfilePage() {
       <Navbar user={me} />
 
       <div className="flex">
-        <LeftSidebar user={me} onAskQuestion={() => navigate('/home')} />
+        <LeftSidebar user={me} />
 
         <main className="flex-1 md:ml-64 p-4 md:p-6 bg-[#FFF1F2] min-h-screen">
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
@@ -642,61 +621,7 @@ export default function ProfilePage() {
             <div className="hidden lg:block space-y-6">
 
               {/* Topics / Expertise Card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-rose-100 p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-gray-900">Expertise / Interests</h3>
-                  {isMe && !isEditingTopics && (
-                    <button onClick={() => setIsEditingTopics(true)} className="text-xs text-rose-500 font-medium hover:text-rose-600 transition-colors">Edit</button>
-                  )}
-                </div>
-
-                {isEditingTopics ? (
-                  <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100">
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {topics.map(t => (
-                        <span key={t} className="bg-white border border-rose-200 text-gray-700 px-3 py-1.5 rounded-full text-xs flex items-center gap-1 shadow-sm">
-                          {t}
-                          <button onClick={() => handleRemoveTopic(t)} className="text-gray-400 hover:text-rose-500 font-bold ml-1 transition-colors">×</button>
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newTopic}
-                        onChange={(e) => setNewTopic(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddTopic()}
-                        placeholder="Add topic..."
-                        className="flex-1 text-sm border-rose-200 rounded-lg focus:ring-rose-500 focus:border-rose-500"
-                      />
-                      <button onClick={handleAddTopic} className="px-4 py-2 bg-white border border-rose-200 text-gray-700 rounded-lg text-sm hover:bg-rose-50 transition-colors">Add</button>
-                    </div>
-                    <div className="mt-4 flex gap-2 justify-end">
-                      <button onClick={() => { setIsEditingTopics(false); setTopics(profileUser.skills || []); }} className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
-                      <button onClick={handleSaveTopics} className="px-4 py-1.5 text-xs bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg hover:shadow-md transition-all">Save</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {topics.length > 0 ? topics.map(t => (
-                      <span key={t} className="bg-gradient-to-r from-rose-50 to-rose-100 text-rose-600 px-3 py-1.5 rounded-full text-xs font-medium cursor-default border border-rose-200">
-                        #{t}
-                      </span>
-                    )) : (
-                      <div className="text-center py-6 w-full">
-                        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-br from-rose-100 to-rose-50 flex items-center justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-rose-400">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
-                          </svg>
-                        </div>
-                        <span className="text-gray-400 text-sm">No topics added yet.</span>
-                        {isMe && <button onClick={() => setIsEditingTopics(true)} className="block mx-auto mt-2 text-rose-500 text-xs font-medium hover:text-rose-600 transition-colors">Add Topics</button>}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <TopicManager user={profileUser} isMe={isMe} />
 
               {/* Stats Card (Optional, maybe move detailed stats here?) */}
               {/* Fore now just the topics as requested */}
@@ -705,7 +630,7 @@ export default function ProfilePage() {
           </div>
         </main>
       </div >
-      <MobileNav onAskQuestion={() => navigate('/home')} />
+      <MobileNav />
     </div >
   );
 }
