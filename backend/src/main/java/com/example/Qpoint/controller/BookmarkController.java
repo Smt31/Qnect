@@ -20,7 +20,7 @@ public class BookmarkController {
     }
 
     @PostMapping("/{postId}")
-    public ResponseEntity<Bookmark> bookmarkPost(@PathVariable Long postId, Authentication authentication) {
+    public ResponseEntity<Void> bookmarkPost(@PathVariable Long postId, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
@@ -35,8 +35,8 @@ public class BookmarkController {
             return ResponseEntity.status(401).build();
         }
         
-        Bookmark bookmark = bookmarkService.bookmarkPost(userId, postId);
-        return ResponseEntity.ok(bookmark);
+        bookmarkService.bookmarkPost(userId, postId);
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{postId}")

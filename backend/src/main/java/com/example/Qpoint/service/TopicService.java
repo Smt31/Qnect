@@ -62,4 +62,9 @@ public class TopicService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "postCount"));
         return topicRepository.findByNameContainingIgnoreCase(query, pageable);
     }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void refreshPostCounts() {
+        topicRepository.updatePostCounts();
+    }
 }

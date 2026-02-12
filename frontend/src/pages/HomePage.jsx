@@ -141,12 +141,14 @@ export default function HomePage() {
   const deleteQuestionMutation = useDeleteQuestion();
 
   const handleDeletePost = async (postId) => {
-    try {
-      await deleteQuestionMutation.mutateAsync(postId);
-      // The feed will be invalidated by the mutation's onSuccess handler
-    } catch (error) {
-      console.error('Failed to delete post:', error);
-      alert('Failed to delete post');
+    if (window.confirm('Are you sure you want to delete this post?')) {
+      try {
+        await deleteQuestionMutation.mutateAsync(postId);
+        // The feed will be invalidated by the mutation's onSuccess handler
+      } catch (error) {
+        console.error('Failed to delete post:', error);
+        alert('Failed to delete post');
+      }
     }
   };
 

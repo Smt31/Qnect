@@ -52,11 +52,13 @@ export default function TopicPage() {
     };
 
     const handleDeletePost = async (postId) => {
-        try {
-            await deleteQuestionMutation.mutateAsync(postId);
-        } catch (error) {
-            console.error('Failed to delete post:', error);
-            alert('Failed to delete post');
+        if (window.confirm('Are you sure you want to delete this post?')) {
+            try {
+                await deleteQuestionMutation.mutateAsync(postId);
+            } catch (error) {
+                console.error('Failed to delete post:', error);
+                alert('Failed to delete post');
+            }
         }
     };
 
@@ -135,11 +137,6 @@ export default function TopicPage() {
                                     )}
                                     <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
                                         <span>{topic.postCount || 0} posts</span>
-                                        <span>
-                                            {isFollowed && (topic.followersCount || 0) === 0
-                                                ? 1
-                                                : (topic.followersCount || 0)} followers
-                                        </span>
                                     </div>
                                 </div>
 

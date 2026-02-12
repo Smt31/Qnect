@@ -229,8 +229,54 @@ export const useDeleteQuestion = () => {
 
   return useMutation({
     mutationFn: (id) => questionApi.deleteQuestion(id),
-    onSuccess: (_, deletedId) => {
-      queryClient.removeQueries({ queryKey: ['question', deletedId] });
+    onMutate: async (deletedId) => {
+      // Cancel queries
+      await Promise.all([
+        queryClient.cancelQueries(['feed']),
+        queryClient.cancelQueries(['questions']),
+        queryClient.cancelQueries(['topic-posts']),
+        queryClient.cancelQueries(['user-questions'])
+      ]);
+
+      const previousFeeds = queryClient.getQueriesData(['feed']);
+      const previousQuestions = queryClient.getQueriesData(['questions']);
+      const previousTopicPosts = queryClient.getQueriesData(['topic-posts']);
+      const previousUserQuestions = queryClient.getQueriesData(['user-questions']);
+
+      // Optimistically update
+      const updateData = (oldData) => {
+        if (!oldData) return oldData;
+        if (oldData.content) {
+          return {
+            ...oldData,
+            content: oldData.content.filter(post => post.id !== deletedId)
+          };
+        }
+        return oldData;
+      };
+
+      queryClient.setQueriesData({ queryKey: ['feed'] }, updateData);
+      queryClient.setQueriesData({ queryKey: ['questions'] }, updateData);
+      queryClient.setQueriesData({ queryKey: ['topic-posts'] }, updateData);
+      queryClient.setQueriesData({ queryKey: ['user-questions'] }, updateData);
+
+      return { previousFeeds, previousQuestions, previousTopicPosts, previousUserQuestions };
+    },
+    onError: (err, newTodo, context) => {
+      if (context?.previousFeeds) {
+        context.previousFeeds.forEach(([key, val]) => queryClient.setQueryData(key, val));
+      }
+      if (context?.previousQuestions) {
+        context.previousQuestions.forEach(([key, val]) => queryClient.setQueryData(key, val));
+      }
+      if (context?.previousTopicPosts) {
+        context.previousTopicPosts.forEach(([key, val]) => queryClient.setQueryData(key, val));
+      }
+      if (context?.previousUserQuestions) {
+        context.previousUserQuestions.forEach(([key, val]) => queryClient.setQueryData(key, val));
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] });
       queryClient.invalidateQueries({ queryKey: ['questions'] });
       queryClient.invalidateQueries({ queryKey: ['topic-posts'] });

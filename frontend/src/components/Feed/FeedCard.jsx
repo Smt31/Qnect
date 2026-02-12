@@ -34,7 +34,7 @@ export default function FeedCard({ post, currentUserId, onVote, onDelete, onShar
                     {topRightElement}
                     {!hideDelete && String(currentUserId) === String(post.author?.id) && (
                         <button
-                            className="text-gray-400 hover:text-red-500 transition-colors p-2"
+                            className="text-gray-400 hover:text-red-500 transition-colors p-2 cursor-pointer"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDelete(post.id);
