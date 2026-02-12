@@ -380,7 +380,7 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
-    public Page<FeedPostDto> getPostsByTopic(Long topicId, int page, int size) {
+    public Page<FeedPostDto> getPostsByTopic(Long topicId, Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Post> posts = postRepository.findByTopicIdRanked(topicId, pageable);
         
@@ -398,7 +398,7 @@ public class PostService {
             }
         }
         
-        return posts.map(post -> convertToFeedPostDto(post, null));
+        return convertToFeedPostDtoBulk(posts, userId);
     }
 
     @Transactional(readOnly = true)

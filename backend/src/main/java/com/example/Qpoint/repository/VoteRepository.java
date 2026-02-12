@@ -11,6 +11,9 @@ import java.util.Optional;
 public interface VoteRepository extends JpaRepository<Vote, Long> {
     Optional<Vote> findByUserAndEntityTypeAndEntityId(User user, Vote.EntityType entityType, Long entityId);
 
+    @Query("SELECT v FROM Vote v WHERE v.user.id = :userId AND v.entityType = :entityType AND v.entityId = :entityId")
+    Optional<Vote> findByUserIdAndEntityTypeAndEntityId(@Param("userId") Long userId, @Param("entityType") Vote.EntityType entityType, @Param("entityId") Long entityId);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     java.util.List<Vote> findAllByUserAndEntityTypeAndEntityId(User user, Vote.EntityType entityType, Long entityId);
     void deleteByEntityTypeAndEntityId(Vote.EntityType entityType, Long entityId);

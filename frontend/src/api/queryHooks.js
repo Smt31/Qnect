@@ -30,9 +30,9 @@ export const useTopic = (id) => {
   });
 };
 
-export const useTopicQuestions = (topicId, page = 0, size = 10) => {
+export const useTopicPosts = (topicId, page = 0, size = 10) => {
   return useQuery({
-    queryKey: ['topic-questions', topicId, page, size],
+    queryKey: ['topic-posts', topicId, page, size],
     queryFn: () => questionApi.getQuestionsByTopic(topicId, page, size),
     enabled: !!topicId,
     staleTime: 2 * 60 * 1000,
@@ -233,6 +233,7 @@ export const useDeleteQuestion = () => {
       queryClient.removeQueries({ queryKey: ['question', deletedId] });
       queryClient.invalidateQueries({ queryKey: ['feed'] });
       queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['topic-posts'] });
       queryClient.invalidateQueries({ queryKey: ['user-questions'] });
     },
   });
@@ -366,12 +367,14 @@ export const useVoteQuestion = () => {
     onMutate: async ({ postId, voteType }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['feed'] });
+      await queryClient.cancelQueries({ queryKey: ['topic-posts'] });
       await queryClient.cancelQueries({ queryKey: ['vote-counts', 'question', postId] });
       await queryClient.cancelQueries({ queryKey: ['vote-status', 'question', postId] });
       await queryClient.cancelQueries({ queryKey: ['question', postId] });
 
       // Snapshot previous values for rollback - capture ALL relevant caches
       const previousFeedQueries = queryClient.getQueriesData({ queryKey: ['feed'] });
+      const previousTopicPosts = queryClient.getQueriesData({ queryKey: ['topic-posts'] });
       const previousVoteCounts = queryClient.getQueryData(['vote-counts', 'question', postId]);
       const previousVoteStatus = queryClient.getQueryData(['vote-status', 'question', postId]);
       const previousQuestion = queryClient.getQueryData(['question', postId]);
@@ -402,6 +405,21 @@ export const useVoteQuestion = () => {
         for (const [queryKey, queryData] of previousFeedQueries) {
           if (queryData && queryData.feed) {
             const post = queryData.feed.find(p => p.id === postId);
+            if (post) {
+              currentStatus = post.currentUserVoteStatus || currentStatus;
+              currentUpvotes = post.upvotes ?? currentUpvotes;
+              currentDownvotes = post.downvotes ?? currentDownvotes;
+              break;
+            }
+          }
+        }
+      }
+
+      // If still not found, try to find in topic posts cache
+      if (previousTopicPosts && previousTopicPosts.length > 0) {
+        for (const [queryKey, queryData] of previousTopicPosts) {
+          if (queryData && queryData.content) {
+            const post = queryData.content.find(p => p.id === postId);
             if (post) {
               currentStatus = post.currentUserVoteStatus || currentStatus;
               currentUpvotes = post.upvotes ?? currentUpvotes;
@@ -463,6 +481,23 @@ export const useVoteQuestion = () => {
         };
       });
 
+      // Update ALL topic-posts caches
+      queryClient.setQueriesData({ queryKey: ['topic-posts'] }, (oldData) => {
+        if (!oldData || !oldData.content) return oldData;
+        return {
+          ...oldData,
+          content: oldData.content.map(post => {
+            if (post.id !== postId) return post;
+            return {
+              ...post,
+              currentUserVoteStatus: newStatus,
+              upvotes: newUpvotes,
+              downvotes: newDownvotes,
+            };
+          }),
+        };
+      });
+
       // Update individual question cache
       queryClient.setQueryData(['question', postId], (oldData) => {
         if (!oldData) return oldData;
@@ -475,7 +510,7 @@ export const useVoteQuestion = () => {
       });
 
       // Return context for rollback
-      return { previousFeedQueries, previousVoteCounts, previousVoteStatus, previousQuestion, postId };
+      return { previousFeedQueries, previousTopicPosts, previousVoteCounts, previousVoteStatus, previousQuestion, postId };
     },
 
     // Rollback on error
@@ -483,6 +518,12 @@ export const useVoteQuestion = () => {
       // Restore all feed caches
       if (context?.previousFeedQueries) {
         for (const [queryKey, queryData] of context.previousFeedQueries) {
+          queryClient.setQueryData(queryKey, queryData);
+        }
+      }
+      // Restore all topic-posts caches
+      if (context?.previousTopicPosts) {
+        for (const [queryKey, queryData] of context.previousTopicPosts) {
           queryClient.setQueryData(queryKey, queryData);
         }
       }
@@ -504,6 +545,7 @@ export const useVoteQuestion = () => {
       queryClient.invalidateQueries({ queryKey: ['question', postId] });
       // Also invalidate feed to sync state across pages
       queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({ queryKey: ['topic-questions'] });
     },
   });
 };
@@ -529,10 +571,12 @@ export const useBookmarkPost = () => {
     onMutate: async (postId) => {
       await queryClient.cancelQueries({ queryKey: ['bookmark-status', postId] });
       await queryClient.cancelQueries({ queryKey: ['feed'] });
+      await queryClient.cancelQueries({ queryKey: ['topic-questions'] });
       await queryClient.cancelQueries({ queryKey: ['question', postId] });
 
       const previousStatus = queryClient.getQueryData(['bookmark-status', postId]);
       const previousFeedQueries = queryClient.getQueriesData({ queryKey: ['feed'] });
+      const previousTopicQuestions = queryClient.getQueriesData({ queryKey: ['topic-questions'] });
       const previousQuestion = queryClient.getQueryData(['question', postId]);
 
       // Optimistically update bookmark status
@@ -549,13 +593,24 @@ export const useBookmarkPost = () => {
         };
       });
 
+      // Update ALL topic-questions caches
+      queryClient.setQueriesData({ queryKey: ['topic-questions'] }, (oldData) => {
+        if (!oldData || !oldData.content) return oldData;
+        return {
+          ...oldData,
+          content: oldData.content.map(post =>
+            post.id === postId ? { ...post, isBookmarked: true } : post
+          ),
+        };
+      });
+
       // Update question cache
       queryClient.setQueryData(['question', postId], (oldData) => {
         if (!oldData) return oldData;
         return { ...oldData, isBookmarked: true };
       });
 
-      return { previousStatus, previousFeedQueries, previousQuestion, postId };
+      return { previousStatus, previousFeedQueries, previousTopicQuestions, previousQuestion, postId };
     },
 
     onError: (err, postId, context) => {
@@ -564,6 +619,11 @@ export const useBookmarkPost = () => {
       }
       if (context?.previousFeedQueries) {
         for (const [queryKey, queryData] of context.previousFeedQueries) {
+          queryClient.setQueryData(queryKey, queryData);
+        }
+      }
+      if (context?.previousTopicQuestions) {
+        for (const [queryKey, queryData] of context.previousTopicQuestions) {
           queryClient.setQueryData(queryKey, queryData);
         }
       }
@@ -576,6 +636,7 @@ export const useBookmarkPost = () => {
       queryClient.invalidateQueries({ queryKey: ['bookmark-status', postId] });
       queryClient.invalidateQueries({ queryKey: ['question', postId] });
       queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({ queryKey: ['topic-questions'] });
     },
   });
 };
@@ -589,10 +650,12 @@ export const useUnbookmarkPost = () => {
     onMutate: async (postId) => {
       await queryClient.cancelQueries({ queryKey: ['bookmark-status', postId] });
       await queryClient.cancelQueries({ queryKey: ['feed'] });
+      await queryClient.cancelQueries({ queryKey: ['topic-questions'] });
       await queryClient.cancelQueries({ queryKey: ['question', postId] });
 
       const previousStatus = queryClient.getQueryData(['bookmark-status', postId]);
       const previousFeedQueries = queryClient.getQueriesData({ queryKey: ['feed'] });
+      const previousTopicQuestions = queryClient.getQueriesData({ queryKey: ['topic-questions'] });
       const previousQuestion = queryClient.getQueryData(['question', postId]);
 
       // Optimistically update bookmark status
@@ -609,13 +672,24 @@ export const useUnbookmarkPost = () => {
         };
       });
 
+      // Update ALL topic-questions caches
+      queryClient.setQueriesData({ queryKey: ['topic-questions'] }, (oldData) => {
+        if (!oldData || !oldData.content) return oldData;
+        return {
+          ...oldData,
+          content: oldData.content.map(post =>
+            post.id === postId ? { ...post, isBookmarked: false } : post
+          ),
+        };
+      });
+
       // Update question cache
       queryClient.setQueryData(['question', postId], (oldData) => {
         if (!oldData) return oldData;
         return { ...oldData, isBookmarked: false };
       });
 
-      return { previousStatus, previousFeedQueries, previousQuestion, postId };
+      return { previousStatus, previousFeedQueries, previousTopicQuestions, previousQuestion, postId };
     },
 
     onError: (err, postId, context) => {
@@ -624,6 +698,11 @@ export const useUnbookmarkPost = () => {
       }
       if (context?.previousFeedQueries) {
         for (const [queryKey, queryData] of context.previousFeedQueries) {
+          queryClient.setQueryData(queryKey, queryData);
+        }
+      }
+      if (context?.previousTopicQuestions) {
+        for (const [queryKey, queryData] of context.previousTopicQuestions) {
           queryClient.setQueryData(queryKey, queryData);
         }
       }
@@ -636,6 +715,7 @@ export const useUnbookmarkPost = () => {
       queryClient.invalidateQueries({ queryKey: ['bookmark-status', postId] });
       queryClient.invalidateQueries({ queryKey: ['question', postId] });
       queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({ queryKey: ['topic-questions'] });
     },
   });
 };

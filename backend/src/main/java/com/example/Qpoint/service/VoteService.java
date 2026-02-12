@@ -41,17 +41,11 @@ public class VoteService {
         Post post = postRepository.findById(questionId)
                 .orElseThrow(() -> new RuntimeException("Question not found"));
 
-        java.util.List<Vote> existingVotes = voteRepository.findAllByUserAndEntityTypeAndEntityId(
-                user, Vote.EntityType.QUESTION, questionId);
+        Optional<Vote> existingVoteOpt = voteRepository.findByUserIdAndEntityTypeAndEntityId(
+                userId, Vote.EntityType.QUESTION, questionId);
 
-        if (!existingVotes.isEmpty()) {
-            Vote primaryVote = existingVotes.get(0);
-            // Cleanup duplicates if any
-            if (existingVotes.size() > 1) {
-                for (int i = 1; i < existingVotes.size(); i++) {
-                    removeVote(existingVotes.get(i), post, Vote.EntityType.QUESTION, user); // Pass user
-                }
-            }
+        if (existingVoteOpt.isPresent()) {
+            Vote primaryVote = existingVoteOpt.get();
 
             if (primaryVote.getVoteType() == voteType) {
                 removeVote(primaryVote, post, Vote.EntityType.QUESTION, user); // Pass user

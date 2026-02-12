@@ -1,10 +1,13 @@
+// TopicPage.jsx (partial replacement)
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTopic, useTopicQuestions, useCurrentUser, useFollowTopic, useUnfollowTopic } from '../api/queryHooks';
+import { useTopic, useTopicPosts, useCurrentUser, useFollowTopic, useUnfollowTopic, useVoteQuestion, useDeleteQuestion, useBookmarkPost, useUnbookmarkPost } from '../api/queryHooks';
 import Navbar from '../components/Home/Navbar';
 import LeftSidebar from '../components/Home/LeftSidebar';
 import MobileNav from '../components/Home/MobileNav';
-import CompactFeedCard from '../components/Feed/CompactFeedCard';
+import FeedCard from '../components/Feed/FeedCard';
 import Skeleton from '../components/common/Skeleton';
+import ShareModal from '../components/ShareModal';
+import { useState } from 'react';
 
 export default function TopicPage() {
     const { id } = useParams();
@@ -15,21 +18,65 @@ export default function TopicPage() {
     const { data: topic, isLoading: topicLoading, isError: topicError } = useTopic(id);
 
     // Fetch questions for this topic
-    const { data: questions, isLoading: questionsLoading } = useTopicQuestions(id);
+    const { data: questions, isLoading: questionsLoading } = useTopicPosts(id);
 
     const followMutation = useFollowTopic();
     const unfollowMutation = useUnfollowTopic();
+    const voteMutation = useVoteQuestion();
+    const deleteQuestionMutation = useDeleteQuestion();
+    const bookmarkMutation = useBookmarkPost();
+    const unbookmarkMutation = useUnbookmarkPost();
 
     // Check if current user follows this topic
-    // Note: simpler check compatible with existing user object structure
     const isFollowed = me?.topics?.some(t => t.id === Number(id)) ||
         (topic?.name && me?.skills?.includes(topic.name));
+
+    // Share modal state
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [sharePost, setSharePost] = useState(null);
 
     const handleToggleFollow = () => {
         if (isFollowed) {
             unfollowMutation.mutate(id);
         } else {
             followMutation.mutate(id);
+        }
+    };
+
+    const handleVote = async (postId, type) => {
+        try {
+            await voteMutation.mutateAsync({ voteType: type, postId });
+        } catch (e) {
+            console.error('Vote failed:', e);
+        }
+    };
+
+    const handleDeletePost = async (postId) => {
+        try {
+            await deleteQuestionMutation.mutateAsync(postId);
+        } catch (error) {
+            console.error('Failed to delete post:', error);
+            alert('Failed to delete post');
+        }
+    };
+
+    const handleShare = (post) => {
+        setSharePost(post);
+        setShowShareModal(true);
+    };
+
+    const handleBookmark = async (postId) => {
+        const post = questions?.content?.find(p => p.id === postId);
+        const wasBookmarked = post?.isBookmarked || false;
+
+        try {
+            if (wasBookmarked) {
+                await unbookmarkMutation.mutateAsync(postId);
+            } else {
+                await bookmarkMutation.mutateAsync(postId);
+            }
+        } catch (e) {
+            console.error('Bookmark toggle failed:', e);
         }
     };
 
@@ -88,7 +135,11 @@ export default function TopicPage() {
                                     )}
                                     <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
                                         <span>{topic.postCount || 0} posts</span>
-                                        <span>{topic.followersCount || 0} followers</span>
+                                        <span>
+                                            {isFollowed && (topic.followersCount || 0) === 0
+                                                ? 1
+                                                : (topic.followersCount || 0)} followers
+                                        </span>
                                     </div>
                                 </div>
 
@@ -109,7 +160,7 @@ export default function TopicPage() {
 
                         {/* Questions Feed */}
                         <div>
-                            <h2 className="text-lg font-bold text-gray-900 mb-4 px-1">Top Questions in #{topic.name}</h2>
+                            <h2 className="text-lg font-bold text-gray-900 mb-4 px-1">Top Posts in #{topic.name}</h2>
 
                             {questionsLoading ? (
                                 <div className="space-y-4">
@@ -118,13 +169,36 @@ export default function TopicPage() {
                             ) : questions?.content && questions.content.length > 0 ? (
                                 <div className="space-y-4">
                                     {questions.content.map(q => (
-                                        <CompactFeedCard key={q.id} post={q} />
+                                        <FeedCard
+                                            key={q.id}
+                                            post={q}
+                                            currentUserId={me?.userId}
+                                            onVote={handleVote}
+                                            onDelete={handleDeletePost}
+                                            onShare={handleShare}
+                                            topRightElement={
+                                                <button
+                                                    className={`flex flex-col items-center justify-center w-10 h-10 rounded-full border transition-all ${q.isBookmarked
+                                                        ? 'bg-yellow-50 text-yellow-500 border-yellow-200'
+                                                        : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleBookmark(q.id);
+                                                    }}
+                                                    title={q.isBookmarked ? "Remove Bookmark" : "Bookmark"}
+                                                >
+                                                    <svg className="w-5 h-5" fill={q.isBookmarked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                                    </svg>
+                                                </button>
+                                            }
+                                        />
                                     ))}
                                 </div>
                             ) : (
                                 <div className="bg-white rounded-xl shadow-sm p-10 text-center text-gray-500">
-                                    <p>No questions found for this topic yet.</p>
-                                    <p className="text-sm mt-2">Be the first to ask about #{topic.name}!</p>
+                                    <p>No posts found for this topic yet.</p>
+                                    <p className="text-sm mt-2">Be the first to post about #{topic.name}!</p>
                                 </div>
                             )}
                         </div>
@@ -132,7 +206,14 @@ export default function TopicPage() {
                     </div>
                 </main>
             </div>
+
             <MobileNav />
+
+            <ShareModal
+                isOpen={showShareModal}
+                onClose={() => setShowShareModal(false)}
+                post={sharePost}
+            />
         </div>
     );
 }

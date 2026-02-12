@@ -32,7 +32,7 @@ export default function FeedCard({ post, currentUserId, onVote, onDelete, onShar
 
                 <div className="flex items-center gap-2">
                     {topRightElement}
-                    {!hideDelete && currentUserId === post.author?.id && (
+                    {!hideDelete && String(currentUserId) === String(post.author?.id) && (
                         <button
                             className="text-gray-400 hover:text-red-500 transition-colors p-2"
                             onClick={(e) => {

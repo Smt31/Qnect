@@ -109,8 +109,16 @@ public class QuestionsController {
     @GetMapping("/topic/{topicId}")
     public ResponseEntity<Page<FeedPostDto>> getQuestionsByTopic(@PathVariable Long topicId,
                                                                  @RequestParam(defaultValue = "0") int page,
-                                                                 @RequestParam(defaultValue = "10") int size) {
-        Page<FeedPostDto> questions = postService.getPostsByTopic(topicId, page, size);
+                                                                 @RequestParam(defaultValue = "10") int size,
+                                                                 Authentication authentication) {
+        Long userId = null;
+        if (authentication != null && authentication.isAuthenticated()) {
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof CustomUserDetails) {
+                userId = ((CustomUserDetails) principal).getUserId();
+            }
+        }
+        Page<FeedPostDto> questions = postService.getPostsByTopic(topicId, userId, page, size);
         return ResponseEntity.ok(questions);
     }
 
