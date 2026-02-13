@@ -265,7 +265,7 @@ export const notificationApi = {
 
 export const chatApi = {
   getConversations: () => get('/api/chat/conversations', true),
-  getMessages: (otherUserId) => get(`/api/chat/messages/${otherUserId}`, true),
+  getMessages: (otherUserId, before = null) => get(`/api/chat/messages/${otherUserId}${before ? `?before=${before}` : ''}`, true),
   sendMessageHttp: (payload) => post('/api/chat/send', payload, true),
   markAsRead: (otherUserId) => put(`/api/chat/read/${otherUserId}`, {}, true),
   deleteMessageForMe: (messageId) => del(`/api/chat/messages/${messageId}/delete-for-me`, true),
@@ -335,7 +335,7 @@ export const groupApi = {
   demoteFromAdmin: (groupId, targetUserId) => post(`/api/groups/${groupId}/demote/${targetUserId}`, {}, true),
   updateGroup: (groupId, data) => put(`/api/groups/${groupId}`, data, true),
   deleteGroup: (groupId) => del(`/api/groups/${groupId}`, true),
-  getMessages: (groupId, page = 0, size = 50) => get(`/api/groups/${groupId}/messages?page=${page}&size=${size}`, true),
+  getMessages: (groupId, before = null) => get(`/api/groups/${groupId}/messages${before ? `?before=${before}` : ''}`, true),
   deleteMessageForMe: (messageId) => del(`/api/groups/messages/${messageId}/me`, true),
   deleteMessageForEveryone: (messageId) => del(`/api/groups/messages/${messageId}/everyone`, true),
   getPublicGroups: () => get('/api/groups/public', true),

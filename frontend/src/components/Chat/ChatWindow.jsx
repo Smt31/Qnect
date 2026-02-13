@@ -16,7 +16,7 @@ const DefaultAvatar = ({ size = 'w-10 h-10', className = '' }) => (
     </div>
 );
 
-const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSendMessage, onUpdateMessages, loading, onBack }) => {
+const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSendMessage, onUpdateMessages, loading, onBack, hasMore, loadingMore, onLoadMore }) => {
     const [newMessage, setNewMessage] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -24,6 +24,10 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
     const [showGroupDetails, setShowGroupDetails] = useState(false);
     const fileInputRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const messagesContainerRef = useRef(null);
+    const sentinelRef = useRef(null);
+    const prevScrollHeightRef = useRef(0);
+    const isInitialLoadRef = useRef(true);
     const queryClient = useQueryClient();
 
     const prevMessagesLength = useRef(0);
@@ -32,20 +36,69 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
         messagesEndRef.current?.scrollIntoView({ behavior });
     };
 
+    // Auto-scroll to bottom on initial load or new message sent
     useEffect(() => {
         const currentLength = messages.length;
         const prevLength = prevMessagesLength.current;
-        const isInitialLoad = prevLength === 0;
-        const hasNewMessages = currentLength > prevLength;
 
-        if (hasNewMessages) {
-            setTimeout(() => {
-                scrollToBottom(isInitialLoad ? 'auto' : 'smooth');
-            }, 100);
+        if (isInitialLoadRef.current && currentLength > 0) {
+            // Initial load — instant scroll to bottom
+            setTimeout(() => scrollToBottom('instant'), 50);
+            isInitialLoadRef.current = false;
+        } else if (currentLength > prevLength && prevLength > 0) {
+            // New message added at bottom — check if user is near bottom
+            const container = messagesContainerRef.current;
+            if (container) {
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+                if (isNearBottom) {
+                    setTimeout(() => scrollToBottom('smooth'), 50);
+                }
+            }
         }
 
         prevMessagesLength.current = currentLength;
     }, [messages]);
+
+    // Reset initial load flag when chat changes
+    useEffect(() => {
+        isInitialLoadRef.current = true;
+        prevMessagesLength.current = 0;
+    }, [selectedUser?.otherUserId, selectedGroup?.id]);
+
+    // Scroll preservation when older messages are prepended
+    useEffect(() => {
+        const container = messagesContainerRef.current;
+        if (container && prevScrollHeightRef.current > 0) {
+            const newScrollHeight = container.scrollHeight;
+            const addedHeight = newScrollHeight - prevScrollHeightRef.current;
+            if (addedHeight > 0 && !isInitialLoadRef.current) {
+                container.scrollTop += addedHeight;
+            }
+            prevScrollHeightRef.current = 0;
+        }
+    });
+
+    // IntersectionObserver for scroll-up loading
+    useEffect(() => {
+        if (!hasMore || loadingMore || !sentinelRef.current || !messagesContainerRef.current) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasMore && !loadingMore) {
+                    // Save scroll height before loading more
+                    prevScrollHeightRef.current = messagesContainerRef.current?.scrollHeight || 0;
+                    onLoadMore?.();
+                }
+            },
+            {
+                root: messagesContainerRef.current,
+                threshold: 0.1,
+            }
+        );
+
+        observer.observe(sentinelRef.current);
+        return () => observer.disconnect();
+    }, [hasMore, loadingMore, onLoadMore, messages.length]);
 
     // WebSocket listener for message deletions (Global + Group handling done in ChatPage, but we might need local re-fetch trigger?)
     // Actually ChatPage handles the message array update. We rely on that.
@@ -275,6 +328,7 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                 <MessageSkeleton />
             ) : (
                 <div
+                    ref={messagesContainerRef}
                     className="flex-1 overflow-y-auto p-4 custom-scrollbar"
                     style={{
                         background: 'linear-gradient(135deg, #fef7f8 0%, #fff1f2 50%, #fce7e9 100%)',
@@ -285,6 +339,22 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                         `
                     }}
                 >
+                    {/* Sentinel + Loading spinner for scroll-up pagination */}
+                    {hasMore && (
+                        <div ref={sentinelRef} className="flex justify-center py-3">
+                            {loadingMore ? (
+                                <div className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm animate-pulse">
+                                    <svg className="w-4 h-4 text-rose-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span className="text-xs text-gray-500 font-medium">Loading older messages...</span>
+                                </div>
+                            ) : (
+                                <div className="h-1" /> /* Invisible sentinel */
+                            )}
+                        </div>
+                    )}
                     {messages.map((msg, index) => {
                         // Normalize senderId: DM has msg.senderId, Group has msg.sender.id
                         const msgSenderId = msg.senderId || msg.sender?.id;

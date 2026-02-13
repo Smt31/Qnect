@@ -322,6 +322,73 @@ public List<ChatDTO.MessageResponse> getMessageHistory(Long currentUserId, Long 
                 .build();
     }).collect(Collectors.toList());
 }    
+
+    /**
+     * Paginated message history - cursor-based.
+     * Returns messages in ASC order (oldest first) for display.
+     * @param before - cursor (message ID). If null, returns latest messages.
+     * @param size - number of messages per page
+     * @return Map with "messages" (List) and "hasMore" (Boolean)
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getMessageHistoryPaginated(Long currentUserId, Long otherUserId, Long before, int size) {
+        Optional<Conversation> conv = conversationRepository.findConversationByUsers(currentUserId, otherUserId);
+        if (conv.isEmpty()) {
+            return java.util.Map.of("messages", Collections.emptyList(), "hasMore", false);
+        }
+
+        Long conversationId = conv.get().getId();
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, size);
+
+        List<Object[]> results;
+        if (before != null) {
+            results = messageRepository.findMessagesWithVisibilityBeforeCursor(conversationId, currentUserId, before, pageable);
+        } else {
+            results = messageRepository.findMessagesWithVisibilityPaginated(conversationId, currentUserId, pageable);
+        }
+
+        // Results are in DESC order from DB — reverse to ASC for display
+        Collections.reverse(results);
+
+        List<ChatDTO.MessageResponse> messages = results.stream().map(row -> {
+            Message m = (Message) row[0];
+            boolean deletedForEveryone = (Boolean) row[1];
+
+            String content = m.getContent();
+            String type = m.getType().name();
+            String attachmentUrl = m.getAttachmentUrl();
+            ChatDTO.SharedPostDto sharedPost = buildSharedPostDto(m.getSharedPost());
+
+            if (deletedForEveryone) {
+                content = "This message was deleted";
+                type = "TEXT";
+                attachmentUrl = null;
+                sharedPost = null;
+            }
+
+            return ChatDTO.MessageResponse.builder()
+                    .id(m.getId())
+                    .senderId(m.getSender().getUserId())
+                    .senderUsername(m.getSender().getUsername())
+                    .senderAvatar(m.getSender().getAvatarUrl())
+                    .receiverId(m.getReceiver().getUserId())
+                    .content(content)
+                    .type(type)
+                    .attachmentUrl(attachmentUrl)
+                    .sharedPost(sharedPost)
+                    .createdAt(m.getCreatedAt())
+                    .isRead(m.getIsRead())
+                    .deleted(deletedForEveryone)
+                    .build();
+        }).collect(Collectors.toList());
+
+        boolean hasMore = results.size() == size;
+
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("messages", messages);
+        response.put("hasMore", hasMore);
+        return response;
+    }
     @Transactional
     public void markMessagesAsRead(Long currentUserId, Long otherUserId) {
          Optional<Conversation> conv = conversationRepository.findConversationByUsers(currentUserId, otherUserId);

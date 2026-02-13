@@ -64,6 +64,46 @@ public class GroupChatService {
         return response;
     }
 
+    /**
+     * Async group message save — all DB work happens here in background.
+     * Called after the instant broadcast from GroupWebSocketController.
+     */
+    @org.springframework.scheduling.annotation.Async
+    @Transactional
+    public void saveGroupMessageAsync(Long groupId, Long senderId, GroupChatDTO.SendMessageRequest request) {
+        try {
+            // Validate membership
+            if (!groupMemberRepository.isUserActiveMember(groupId, senderId)) {
+                log.warn("Non-member {} tried to send to group {}", senderId, groupId);
+                return;
+            }
+
+            User sender = userRepository.findById(senderId).orElse(null);
+            if (sender == null) {
+                log.warn("Sender {} not found for group message", senderId);
+                return;
+            }
+
+            Post sharedPost = null;
+            if (request.getSharedPostId() != null && request.getType() == GroupMessage.MessageType.POST_SHARE) {
+                sharedPost = postRepository.findById(request.getSharedPostId()).orElse(null);
+            }
+
+            GroupMessage message = GroupMessage.builder()
+                    .group(groupMemberRepository.findByGroupIdAndUserId(groupId, senderId).orElseThrow().getGroup())
+                    .sender(sender)
+                    .content(request.getContent())
+                    .type(request.getType() != null ? request.getType() : GroupMessage.MessageType.TEXT)
+                    .sharedPost(sharedPost)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            messageRepository.save(message);
+        } catch (Exception e) {
+            log.error("Failed to save group message async: {}", e.getMessage());
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<GroupChatDTO.MessageResponse> getGroupMessages(Long groupId, Long userId, Pageable pageable) {
         // Validation: Must be member (active or used to be? Active required by spec "Clean Slate")
@@ -95,6 +135,54 @@ public class GroupChatService {
             }
             return mapToResponse(m, false);
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * Cursor-based paginated group messages.
+     * Returns {messages: [...], hasMore: bool}
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getGroupMessagesPaginated(Long groupId, Long userId, Long before, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, size);
+
+        List<Object[]> results;
+        if (before != null) {
+            results = messageRepository.findVisibleMessagesBeforeCursor(groupId, userId, before, pageable);
+        } else {
+            results = messageRepository.findVisibleMessagesPaginated(groupId, userId, pageable);
+        }
+
+        // Results are DESC from DB — reverse to ASC for display
+        java.util.Collections.reverse(results);
+
+        List<GroupChatDTO.MessageResponse> messages = results.stream().map(row -> {
+            GroupMessage m = (GroupMessage) row[0];
+            Boolean deletedForEveryone = (Boolean) row[1];
+
+            if (deletedForEveryone != null && deletedForEveryone) {
+                return GroupChatDTO.MessageResponse.builder()
+                        .id(m.getId())
+                        .groupId(m.getGroup().getId())
+                        .content("This message was deleted")
+                        .type(GroupMessage.MessageType.TEXT)
+                        .sender(GroupChatDTO.MessageResponse.SenderDto.builder()
+                                .id(m.getSender().getUserId())
+                                .username(m.getSender().getUsername())
+                                .avatarUrl(m.getSender().getAvatarUrl())
+                                .build())
+                        .createdAt(m.getCreatedAt())
+                        .deleted(true)
+                        .build();
+            }
+            return mapToResponse(m, false);
+        }).collect(Collectors.toList());
+
+        boolean hasMore = results.size() == size;
+
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("messages", messages);
+        response.put("hasMore", hasMore);
+        return response;
     }
 
     @Transactional

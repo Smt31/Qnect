@@ -139,12 +139,13 @@ public class GroupController {
     // --- Messaging (Fetch History) ---
 
     @GetMapping("/{groupId}/messages")
-    public ResponseEntity<List<GroupChatDTO.MessageResponse>> getMessages(
+    public ResponseEntity<java.util.Map<String, Object>> getMessages(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long groupId,
-            @PageableDefault(size = 50) Pageable pageable) {
+            @RequestParam(required = false) Long before,
+            @RequestParam(defaultValue = "30") int size) {
         User user = userService.findByUsername(userDetails.getUsername());
-        return ResponseEntity.ok(groupChatService.getGroupMessages(groupId, user.getUserId(), pageable));
+        return ResponseEntity.ok(groupChatService.getGroupMessagesPaginated(groupId, user.getUserId(), before, size));
     }
 
     @PostMapping("/{groupId}/send")

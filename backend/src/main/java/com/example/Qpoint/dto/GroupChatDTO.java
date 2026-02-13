@@ -14,6 +14,10 @@ public class GroupChatDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class SendMessageRequest {
+        private String tempId; // For optimistic update dedup
+        private Long senderId; // For zero-DB broadcast
+        private String senderUsername; // For zero-DB broadcast
+        private String senderAvatar; // For zero-DB broadcast
         private String content;
         private GroupMessage.MessageType type; // TEXT, IMAGE, POST_SHARE
         private Long sharedPostId; // For POST_SHARE type
@@ -25,6 +29,7 @@ public class GroupChatDTO {
     @Builder
     public static class MessageResponse {
         private Long id;
+        private String tempId; // For optimistic update dedup
         private Long groupId;
         private String content;
         private SenderDto sender;

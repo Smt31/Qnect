@@ -38,15 +38,17 @@ public class ChatController {
     }
 
     @GetMapping("/messages/{otherUserId}")
-    public ResponseEntity<List<ChatDTO.MessageResponse>> getMessages(
+    public ResponseEntity<java.util.Map<String, Object>> getMessages(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long otherUserId) {
+            @PathVariable Long otherUserId,
+            @RequestParam(required = false) Long before,
+            @RequestParam(defaultValue = "30") int size) {
         if (userDetails == null) {
             return ResponseEntity.status(401).build();
         }
         User user = userRepository.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return ResponseEntity.ok(chatService.getMessageHistory(user.getUserId(), otherUserId));
+        return ResponseEntity.ok(chatService.getMessageHistoryPaginated(user.getUserId(), otherUserId, before, size));
     }
 
     @PostMapping("/send")

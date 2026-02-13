@@ -17,6 +17,8 @@ const ChatPage = () => {
     const [messagesLoading, setMessagesLoading] = useState(false);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [wsConnected, setWsConnected] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     const queryClient = useQueryClient();
     const location = useLocation();
@@ -233,37 +235,38 @@ const ChatPage = () => {
                 setMessages(prev => {
                     const msgId = String(messageOrEvent.id || '');
 
-                    // 1. Update existing message (e.g. deletion, or replacing id=null with id=123)
-                    // Check by ID first
-                    if (msgId && prev.some(m => String(m.id) === msgId)) {
-                        if (messageOrEvent.deleted) {
-                            return prev.map(m => String(m.id) === msgId ? messageOrEvent : m);
-                        }
-                        return prev;
-                    }
-
-                    // 2. Deduplication/Reconciliation by tempId (Optimistic or Immediate)
+                    // 1. Dedup by tempId (most reliable — matches optimistic message)
                     if (messageOrEvent.tempId) {
-                        const tempIdx = prev.findIndex(m => m.tempId === messageOrEvent.tempId || m.id === messageOrEvent.tempId);
+                        const tempIdx = prev.findIndex(m =>
+                            m.tempId === messageOrEvent.tempId || m.id === messageOrEvent.tempId
+                        );
                         if (tempIdx !== -1) {
-                            console.log('[WS] Replacing optimistic/temp message via tempId:', messageOrEvent.tempId);
+                            // Replace optimistic message with server response
                             const newArr = [...prev];
                             newArr[tempIdx] = messageOrEvent;
                             return newArr;
                         }
                     }
 
-                    // 3. Deduplication for Group Messages (fallback if no tempId)
+                    // 2. Update existing message by ID (e.g. deletion)
+                    if (msgId && prev.some(m => String(m.id) === msgId)) {
+                        if (messageOrEvent.deleted) {
+                            return prev.map(m => String(m.id) === msgId ? messageOrEvent : m);
+                        }
+                        return prev; // Already have this message
+                    }
+
+                    // 3. Dedup for sender's own messages (fallback by content match)
                     const msgSenderId = String(messageOrEvent.sender?.id || messageOrEvent.senderId);
                     if (msgSenderId === String(currentUser.userId)) {
-                        const pendingIdx = prev.findIndex(m =>
-                            m.pending &&
+                        const dupeIdx = prev.findIndex(m =>
+                            (m.tempId && m.tempId.startsWith('temp-')) &&
                             m.content === messageOrEvent.content &&
                             m.type === messageOrEvent.type
                         );
-                        if (pendingIdx !== -1) {
+                        if (dupeIdx !== -1) {
                             const newArr = [...prev];
-                            newArr[pendingIdx] = messageOrEvent;
+                            newArr[dupeIdx] = messageOrEvent;
                             return newArr;
                         }
                     }
@@ -283,10 +286,12 @@ const ChatPage = () => {
         setSelectedGroup(null);
         setSelectedUser(conv);
         setMessages([]);
+        setHasMore(false);
         setMessagesLoading(true);
         try {
-            const msgs = await chatApi.getMessages(conv.otherUserId);
-            setMessages(msgs);
+            const data = await chatApi.getMessages(conv.otherUserId);
+            setMessages(data.messages || []);
+            setHasMore(data.hasMore || false);
             if (conv.unreadCount > 0) {
                 await chatApi.markAsRead(conv.otherUserId);
                 queryClient.invalidateQueries(['conversations']);
@@ -298,15 +303,43 @@ const ChatPage = () => {
         }
     };
 
+    const loadOlderMessages = async () => {
+        if (loadingMore || !hasMore || messages.length === 0) return;
+        if (!selectedUser && !selectedGroup) return;
+        setLoadingMore(true);
+        try {
+            const oldestId = messages[0]?.id;
+            if (!oldestId) return;
+
+            let data;
+            if (selectedGroup) {
+                data = await groupApi.getMessages(selectedGroup.id, oldestId);
+            } else {
+                data = await chatApi.getMessages(selectedUser.otherUserId, oldestId);
+            }
+
+            const olderMsgs = data.messages || [];
+            setHasMore(data.hasMore || false);
+            if (olderMsgs.length > 0) {
+                setMessages(prev => [...olderMsgs, ...prev]);
+            }
+        } catch (err) {
+            console.error('Failed to load older messages:', err);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
     const handleSelectGroup = async (group) => {
         setSelectedUser(null);
         setSelectedGroup(group);
         setMessages([]);
+        setHasMore(false);
         setMessagesLoading(true);
         try {
-            const msgs = await groupApi.getMessages(group.id);
-            console.log('[ChatPage] Fetched messages for group:', group.id, msgs);
-            setMessages(msgs);
+            const data = await groupApi.getMessages(group.id);
+            setMessages(data.messages || []);
+            setHasMore(data.hasMore || false);
         } catch (err) {
             console.error(err);
         } finally {
@@ -338,8 +371,12 @@ const ChatPage = () => {
 
         try {
             if (selectedGroup) {
-                // Group Send via WebSocket
+                // Group Send via WebSocket — include sender info for zero-DB broadcast
                 webSocketService.send(`/app/group.chat/${selectedGroup.id}`, {
+                    tempId: tempId,
+                    senderId: currentUser.userId,
+                    senderUsername: currentUser.username,
+                    senderAvatar: currentUser.avatarUrl,
                     content: text,
                     type: type,
                 });
@@ -401,6 +438,9 @@ const ChatPage = () => {
                             onSendMessage={handleSendMessage}
                             onUpdateMessages={setMessages}
                             loading={messagesLoading}
+                            hasMore={hasMore}
+                            loadingMore={loadingMore}
+                            onLoadMore={loadOlderMessages}
                             onBack={() => {
                                 setSelectedUser(null);
                                 setSelectedGroup(null);
