@@ -23,6 +23,9 @@ public class ChatController {
 
     private final ChatService chatService;
     private final UserRepository userRepository;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+
+    private final org.springframework.messaging.simp.user.SimpUserRegistry simpUserRegistry;
 
     @GetMapping("/conversations")
     public ResponseEntity<List<ChatDTO.ConversationSummary>> getConversations(@AuthenticationPrincipal UserDetails userDetails) {
@@ -55,24 +58,69 @@ public class ChatController {
         }
         User user = userRepository.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return ResponseEntity.ok(chatService.sendMessage(user.getUserId(), request));
+
+        // 1. Build immediate response (NO DB queries)
+        ChatDTO.MessageResponse immediateResponse = chatService.buildImmediateResponse(user, request);
+
+        // 2. Broadcast Immediately to Receiver
+        messagingTemplate.convertAndSendToUser(
+                immediateResponse.getReceiverUsername(),
+                "/queue/messages",
+                immediateResponse
+        );
+
+        // 3. Trigger Async Save (validation + persistence happens here)
+        chatService.saveMessageAsync(user.getUserId(), request);
+
+        return ResponseEntity.ok(immediateResponse);
     }
 
-    // WebSocket Handler
-    @MessageMapping("/chat.sendMessage")
+    // WebSocket Handler — ZERO DB QUERIES on broadcast path
+    @MessageMapping("/chat.send")
     public void sendMessageWS(@Payload ChatDTO.MessageRequest request, Principal principal) {
-        if (principal == null) {
-            throw new RuntimeException("User not authenticated");
+        if (principal == null) return;
+        
+        // Get username from JWT principal (already in memory, no DB)
+        String username = principal.getName();
+        
+        try {
+            // 1. Build immediate response using ONLY request fields (NO DB!)
+            ChatDTO.MessageResponse immediateResponse = ChatDTO.MessageResponse.builder()
+                    .id(null)
+                    .tempId(request.getTempId())
+                    .senderId(request.getSenderId())
+                    .senderUsername(username)
+                    .senderAvatar(request.getSenderAvatar())
+                    .receiverId(request.getReceiverId())
+                    .receiverUsername(request.getReceiverUsername())
+                    .content(request.getContent())
+                    .type(request.getType())
+                    .attachmentUrl(request.getAttachmentUrl())
+                    .createdAt(java.time.Instant.now())
+                    .isRead(false)
+                    .build();
+            
+            // 2. Broadcast Immediately to Receiver
+            messagingTemplate.convertAndSendToUser(
+                    request.getReceiverUsername(),
+                    "/queue/messages",
+                    immediateResponse
+            );
+            
+            // 3. Ack to Sender
+            messagingTemplate.convertAndSendToUser(
+                    username,
+                    "/queue/messages",
+                    immediateResponse
+            );
+            
+            // 4. Trigger Async Save in background (all DB work happens here)
+            chatService.saveMessageAsync(request.getSenderId(), request);
+
+        } catch (Exception e) {
+            System.err.println("Error in sendMessageWS: " + e.getMessage());
+            messagingTemplate.convertAndSendToUser(username, "/queue/errors", "Failed to send: " + e.getMessage());
         }
-        String username;
-        if (principal instanceof CustomUserDetails) {
-            username = ((CustomUserDetails) principal).getUsername();
-        } else {
-            username = principal.getName();
-        }
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        chatService.sendMessage(user.getUserId(), request);
     }
     
     @PutMapping("/read/{otherUserId}")

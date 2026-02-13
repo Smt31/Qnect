@@ -12,7 +12,11 @@ public class ChatDTO {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class MessageRequest {
+        private String tempId; // For optimistic updates
+        private Long senderId; // Sender's userId (from frontend for zero-DB broadcast)
+        private String senderAvatar; // Sender's avatar URL (from frontend for zero-DB broadcast)
         private Long receiverId;
+        private String receiverUsername; // For instant broadcast without DB lookup
         private String content; // Text content
         private String type; // TEXT, IMAGE, POST_SHARE, QUESTION_SHARE
         private String attachmentUrl; // For IMAGE type
@@ -25,10 +29,12 @@ public class ChatDTO {
     @Builder
     public static class MessageResponse {
         private Long id;
+        private String tempId; // For optimistic updates
         private Long senderId;
         private String senderUsername;
         private String senderAvatar;
         private Long receiverId;
+        private String receiverUsername; // Needed for WebSocket routing
         private String content;
         private String type;
         private String attachmentUrl;

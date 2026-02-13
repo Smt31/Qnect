@@ -12,27 +12,42 @@ class WebSocketService {
 
     connect(onConnected, onError) {
         // If already connected and active, just call the callback
-        if (this.stompClient && this.stompClient.active && this.isConnected) {
+        if (this.stompClient && this.stompClient.connected && this.isConnected) {
             console.log('[WebSocketService] Already connected');
             if (onConnected) onConnected();
             return;
+        }
+
+        // Clean up any existing stale connection
+        if (this.stompClient) {
+            try {
+                this.stompClient.disconnect();
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+            this.stompClient = null;
+            this.isConnected = false;
+            this.subscriptions.clear();
         }
 
         console.log('[WebSocketService] Initiating connection...');
         const socket = new SockJS(`${API_URL}/ws`);
         this.stompClient = Stomp.over(socket);
 
-        // Disable debug logs in production (uncomment next line for debugging)
-        // this.stompClient.debug = (str) => console.log('[STOMP Debug]', str);
+        // Disable debug logs in production
         this.stompClient.debug = () => { };
 
         const token = getAuthToken();
+
+        // Set heartbeat for connection keep-alive
+        this.stompClient.heartbeat = { outgoing: 10000, incoming: 10000 };
 
         this.stompClient.connect(
             { Authorization: `Bearer ${token}` },
             () => {
                 console.log('[WebSocketService] Connection established');
                 this.isConnected = true;
+                this._reconnectAttempts = 0;
 
                 // Process any pending subscriptions
                 this.processPendingSubscriptions();
@@ -44,11 +59,13 @@ class WebSocketService {
                 this.isConnected = false;
                 if (onError) onError(error);
 
-                // Attempt reconnect after delay
+                // Exponential backoff reconnect (max 30s)
+                this._reconnectAttempts = (this._reconnectAttempts || 0) + 1;
+                const delay = Math.min(1000 * Math.pow(2, this._reconnectAttempts), 30000);
+                console.log(`[WebSocketService] Reconnecting in ${delay}ms (attempt ${this._reconnectAttempts})...`);
                 setTimeout(() => {
-                    console.log('[WebSocketService] Attempting reconnection...');
                     this.connect(onConnected, onError);
-                }, 5000);
+                }, delay);
             }
         );
     }
@@ -90,11 +107,14 @@ class WebSocketService {
     }
 
     send(destination, body) {
-        if (this.stompClient && this.isConnected) {
+        if (this.stompClient && this.stompClient.connected) {
             console.log('[WebSocketService] Sending to', destination, ':', body);
             this.stompClient.send(destination, {}, JSON.stringify(body));
         } else {
-            console.error('[WebSocketService] Not connected. Cannot send message.');
+            console.error('[WebSocketService] Not connected. Cannot send message to:', destination);
+            console.log('[WebSocketService] Connection state:', this.stompClient ? 'Client exists' : 'No Client',
+                this.stompClient ? ('Connected: ' + this.stompClient.connected) : '');
+            throw new Error('No WebSocket connection active');
         }
     }
 

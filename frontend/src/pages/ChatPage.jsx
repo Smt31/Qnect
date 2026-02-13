@@ -141,28 +141,32 @@ const ChatPage = () => {
 
                 // Check match - message belongs to the open conversation
                 if (msgSenderId === currentOtherId || msgReceiverId === currentOtherId) {
-                    console.log('[WS] Match found! Adding message to state');
+                    console.log('[WS] Match found! Adding message to state. ID:', newMessage.id, 'TempID:', newMessage.tempId);
                     setMessages(prev => {
-                        // Check for duplicate ID
-                        if (prev.some(m => String(m.id) === String(newMessage.id))) {
-                            console.log('[WS] Duplicate message detected, skipping');
+                        // 1. Check for duplicate ID (if confirmed ID)
+                        if (newMessage.id && prev.some(m => String(m.id) === String(newMessage.id))) {
+                            // It could be an update? Assuming immutable for now besides replace
                             return prev;
                         }
 
-                        // Check for Optimistic Match (from me)
-                        if (String(msgSenderId) === String(currentUser.userId)) {
-                            // Find the first pending message with same content & type
-                            const pendingIdx = prev.findIndex(m =>
-                                m.pending &&
-                                m.content === newMessage.content &&
-                                m.type === newMessage.type
-                            );
+                        // 2. Check for TempId Match (Optimistic or Immediate vs Confirmed)
+                        if (newMessage.tempId) {
+                            const tempIdx = prev.findIndex(m => m.tempId === newMessage.tempId || m.id === newMessage.tempId);
+                            if (tempIdx !== -1) {
+                                console.log('[WS] Reconciling via tempId:', newMessage.tempId);
+                                const existing = prev[tempIdx];
 
-                            if (pendingIdx !== -1) {
-                                // Replace optimistic with real
-                                console.log('[WS] Replacing optimistic message at index:', pendingIdx);
+                                // RACE CONDITION FIX:
+                                // If incoming message is "Immediate" (id=null) but we already have a Confirmed message (id!=null) 
+                                // with the same tempId, IGNORE the immediate message.
+                                if (!newMessage.id && existing.id) {
+                                    console.log('[WS] Ignoring immediate message because confirmed message already exists');
+                                    return prev;
+                                }
+
                                 const newArr = [...prev];
-                                newArr[pendingIdx] = newMessage;
+                                // Replace with new message, keeping it visible
+                                newArr[tempIdx] = newMessage;
                                 return newArr;
                             }
                         }
@@ -190,10 +194,28 @@ const ChatPage = () => {
             }
         });
 
+        // Subscription for Errors
+        const subErrors = webSocketService.subscribe('/user/queue/errors', (errorMessage) => {
+            console.error('[WS] Error received:', errorMessage);
+            // Show toast or alert?
+            // Mark last pending message as failed?
+            setMessages(prev => {
+                // Find latest pending message
+                const newArr = [...prev];
+                const pendingIdx = newArr.findIndex(m => m.pending); // logic might need to be more specific if possible
+                if (pendingIdx !== -1) {
+                    newArr[pendingIdx] = { ...newArr[pendingIdx], failed: true, pending: false };
+                }
+                return newArr;
+            });
+            alert("Message failed to send: " + errorMessage);
+        });
+
         return () => {
             console.log('[WS] Cleaning up subscriptions');
             if (subPrivate) subPrivate.unsubscribe();
             if (subDelete) subDelete.unsubscribe();
+            if (subErrors) subErrors.unsubscribe();
         };
     }, [currentUser, wsConnected, queryClient]);
 
@@ -209,27 +231,37 @@ const ChatPage = () => {
             // Handle valid message
             if (messageOrEvent.content !== undefined) {
                 setMessages(prev => {
-                    if (prev.some(m => String(m.id) === String(messageOrEvent.id))) {
-                        // If it's an update (e.g. deletion masked content), replace it
+                    const msgId = String(messageOrEvent.id || '');
+
+                    // 1. Update existing message (e.g. deletion, or replacing id=null with id=123)
+                    // Check by ID first
+                    if (msgId && prev.some(m => String(m.id) === msgId)) {
                         if (messageOrEvent.deleted) {
-                            return prev.map(m => String(m.id) === String(messageOrEvent.id) ? messageOrEvent : m);
+                            return prev.map(m => String(m.id) === msgId ? messageOrEvent : m);
                         }
                         return prev;
                     }
 
-                    // Deduplication for Group Messages (from me)
-                    // Group messages usually nest sender info: messageOrEvent.sender.id
+                    // 2. Deduplication/Reconciliation by tempId (Optimistic or Immediate)
+                    if (messageOrEvent.tempId) {
+                        const tempIdx = prev.findIndex(m => m.tempId === messageOrEvent.tempId || m.id === messageOrEvent.tempId);
+                        if (tempIdx !== -1) {
+                            console.log('[WS] Replacing optimistic/temp message via tempId:', messageOrEvent.tempId);
+                            const newArr = [...prev];
+                            newArr[tempIdx] = messageOrEvent;
+                            return newArr;
+                        }
+                    }
+
+                    // 3. Deduplication for Group Messages (fallback if no tempId)
                     const msgSenderId = String(messageOrEvent.sender?.id || messageOrEvent.senderId);
                     if (msgSenderId === String(currentUser.userId)) {
-                        console.log('[WS] Reconciling own message:', msgSenderId, messageOrEvent.content);
                         const pendingIdx = prev.findIndex(m =>
                             m.pending &&
                             m.content === messageOrEvent.content &&
                             m.type === messageOrEvent.type
                         );
-                        console.log('[WS] Pending match index:', pendingIdx);
                         if (pendingIdx !== -1) {
-                            // Replace
                             const newArr = [...prev];
                             newArr[pendingIdx] = messageOrEvent;
                             return newArr;
@@ -285,57 +317,57 @@ const ChatPage = () => {
     const handleSendMessage = async (text, type) => {
         if (!currentUser) return;
 
-        // Optimistic Update
+        // Optimistic Update - show message instantly
         const tempId = `temp-${Date.now()}`;
         const optimisticMsg = {
             id: tempId,
-            senderId: currentUser.userId, // for DM
-            sender: { id: currentUser.userId, username: currentUser.username, avatarUrl: currentUser.avatarUrl }, // for Group (DTO diff)
+            tempId: tempId,
+            senderId: currentUser.userId,
+            sender: { id: currentUser.userId, username: currentUser.username, avatarUrl: currentUser.avatarUrl },
             content: text,
             type: type,
             createdAt: new Date().toISOString(),
-            pending: true,
+            pending: false, // Show as sent immediately
+            failed: false,
             attachmentUrl: type === 'IMAGE' ? text : null,
-            // DM fields
             receiverId: selectedUser?.otherUserId,
-            // Group fields
             groupId: selectedGroup?.id
         };
 
         setMessages(prev => [...prev, optimisticMsg]);
 
         try {
-            let resp;
             if (selectedGroup) {
                 // Group Send via WebSocket
                 webSocketService.send(`/app/group.chat/${selectedGroup.id}`, {
                     content: text,
-                    type: type
+                    type: type,
                 });
-
-                // Since we rely on WebSocket to broadcast the message back,
-                // we won't get an immediate HTTP response to update the ID.
-                // The subscription listener will handle the incoming real message.
-                // We leave the optimistic message as "pending" so the listener can find and replace it.
-
             } else if (selectedUser) {
-                // DM Send (HTTP)
+                // DM: Try WebSocket first, fall back to HTTP
                 const payload = {
+                    senderId: currentUser.userId,
+                    senderAvatar: currentUser.avatarUrl,
                     receiverId: selectedUser.otherUserId,
+                    receiverUsername: selectedUser.otherUsername,
                     content: text,
                     type: type,
-                    attachmentUrl: type === 'IMAGE' ? text : null
+                    attachmentUrl: type === 'IMAGE' ? text : null,
+                    tempId: tempId
                 };
-                resp = await chatApi.sendMessageHttp(payload);
-                setMessages(prev => prev.map(msg =>
-                    msg.id === tempId ? { ...resp, pending: false } : msg
-                ));
-            }
 
+                try {
+                    webSocketService.send('/app/chat.send', payload);
+                } catch (wsErr) {
+                    console.warn('[ChatPage] WebSocket send failed, falling back to HTTP:', wsErr.message);
+                    // HTTP Fallback - message still reaches the server
+                    await chatApi.sendMessageHttp(payload);
+                }
+            }
         } catch (err) {
-            console.error("Send failed", err);
+            console.error("Send failed completely", err);
             setMessages(prev => prev.map(msg =>
-                msg.id === tempId ? { ...msg, failed: true, pending: false } : msg
+                msg.tempId === tempId ? { ...msg, failed: true } : msg
             ));
         }
     };

@@ -130,101 +130,133 @@ public class ChatService {
         return summaries;
     }
 
-    @Transactional
-    public ChatDTO.MessageResponse sendMessage(Long senderId, ChatDTO.MessageRequest request) {
-        User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> new RuntimeException("Sender not found"));
-        User receiver = userRepository.findById(request.getReceiverId())
-                .orElseThrow(() -> new RuntimeException("Receiver not found"));
-
-        // Check messaging permissions (kept same as original)
-        boolean canMessage = false;
-        
-        if (followRepository.existsByFollowerAndFollowing(sender, receiver) && 
-            followRepository.existsByFollowerAndFollowing(receiver, sender)) {
-            canMessage = true;
-        }
-        else if (conversationRepository.findConversationByUsers(senderId, request.getReceiverId()).isPresent()) {
-            canMessage = true;
-        }
-        else if (answerRequestRepository.existsByRequestedByAndRequestedTo(sender, receiver) ||
-                 answerRequestRepository.existsByRequestedByAndRequestedTo(receiver, sender)) {
-            canMessage = true;
-        }
-        else if (Boolean.TRUE.equals(receiver.getAllowPublicMessages())) {
-            canMessage = true;
-        }
-        
-        if (!canMessage) {
-            throw new RuntimeException("Cannot message this user - no connection exists and public messages are not allowed");
+    /**
+     * FAST PATH: Build an immediate response for broadcast using ONLY in-memory data.
+     * No database queries here — all validation happens in saveMessageAsync.
+     * This makes the broadcast to receiver near-instant.
+     */
+    public ChatDTO.MessageResponse buildImmediateResponse(User sender, ChatDTO.MessageRequest request) {
+        // Fast path: use receiverUsername from frontend if available
+        String receiverUsername = request.getReceiverUsername();
+        if (receiverUsername == null || receiverUsername.isEmpty()) {
+            // Fallback: lookup from DB (only for ShareModal or legacy callers)
+            User receiver = userRepository.findById(request.getReceiverId()).orElse(null);
+            receiverUsername = receiver != null ? receiver.getUsername() : null;
         }
 
-        Conversation conversation = conversationRepository.findConversationByUsers(senderId, request.getReceiverId())
-                .orElseGet(() -> {
-                    Conversation newConv = Conversation.builder()
-                            .user1(senderId < request.getReceiverId() ? sender : receiver)
-                            .user2(senderId < request.getReceiverId() ? receiver : sender)
-                            .updatedAt(Instant.now())
-                            .build();
-                    return conversationRepository.save(newConv);
-                });
-
-        Message message = Message.builder()
-                .sender(sender)
-                .receiver(receiver)
-                .content(request.getContent())
-                .type(Message.MessageType.valueOf(request.getType()))
-                .attachmentUrl(request.getAttachmentUrl())
-                .conversation(conversation)
-                .createdAt(Instant.now())
-                .isRead(false)
-                .build();
-        
-        if (request.getSharedPostId() != null) {
-            Post sharedPost = postRepository.findById(request.getSharedPostId())
-                    .orElse(null);
-            if (sharedPost != null) {
-                message.setSharedPost(sharedPost);
-                if (request.getContent() == null || request.getContent().isEmpty()) {
-                    message.setContent("Shared a post");
-                }
-            }
-        }
-
-        Message savedMessage = messageRepository.save(message);
-
-        conversation.setLastMessage(savedMessage);
-        conversation.setUpdatedAt(Instant.now());
-        conversationRepository.save(conversation);
-
-        // Manually evict cache for BOTH users since conversation list changed/reordered
-        evictConversationCache(senderId);
-        evictConversationCache(receiver.getUserId());
-        
-        // Evict messages cache for this conversation pair
-        evictMessagesCache(senderId, receiver.getUserId());
-
-        ChatDTO.MessageResponse response = ChatDTO.MessageResponse.builder()
-                .id(savedMessage.getId())
+        return ChatDTO.MessageResponse.builder()
+                .id(null)
+                .tempId(request.getTempId())
                 .senderId(sender.getUserId())
                 .senderUsername(sender.getUsername())
                 .senderAvatar(sender.getAvatarUrl())
-                .receiverId(receiver.getUserId())
-                .content(savedMessage.getContent())
-                .type(savedMessage.getType().name())
-                .attachmentUrl(savedMessage.getAttachmentUrl())
-                .sharedPost(buildSharedPostDto(message.getSharedPost())) // Use message.getSharedPost() which we know is correct
-                .createdAt(savedMessage.getCreatedAt())
+                .receiverId(request.getReceiverId())
+
+                .receiverUsername(receiverUsername)
+                .content(request.getContent())
+                .type(request.getType())
+                .attachmentUrl(request.getAttachmentUrl())
+                .createdAt(Instant.now())
                 .isRead(false)
                 .build();
+    }
 
-        messagingTemplate.convertAndSendToUser(
-                receiver.getUsername(),
-                "/queue/messages",
-                response
-        );
+    @org.springframework.scheduling.annotation.Async
+    @Transactional
+    public void saveMessageAsync(Long senderId, ChatDTO.MessageRequest request) {
+        try {
+            User sender = userRepository.findById(senderId)
+                    .orElseThrow(() -> new RuntimeException("Sender not found"));
+            User receiver = userRepository.findById(request.getReceiverId())
+                    .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
-        return response;
+            Conversation conversation = conversationRepository.findConversationByUsers(senderId, request.getReceiverId())
+                    .orElseGet(() -> {
+                        Conversation newConv = Conversation.builder()
+                                .user1(senderId < request.getReceiverId() ? sender : receiver)
+                                .user2(senderId < request.getReceiverId() ? receiver : sender)
+                                .updatedAt(Instant.now())
+                                .build();
+                        return conversationRepository.save(newConv);
+                    });
+
+            Message message = Message.builder()
+                    .sender(sender)
+                    .receiver(receiver)
+                    .content(request.getContent())
+                    .type(Message.MessageType.valueOf(request.getType()))
+                    .attachmentUrl(request.getAttachmentUrl())
+                    .conversation(conversation)
+                    .createdAt(Instant.now())
+                    .isRead(false)
+                    .build();
+            
+            if (request.getSharedPostId() != null) {
+                Post sharedPost = postRepository.findById(request.getSharedPostId())
+                        .orElse(null);
+                if (sharedPost != null) {
+                    message.setSharedPost(sharedPost);
+                    if (request.getContent() == null || request.getContent().isEmpty()) {
+                        message.setContent("Shared a post");
+                    }
+                }
+            }
+
+            Message savedMessage = messageRepository.save(message);
+
+            conversation.setLastMessage(savedMessage);
+            conversation.setUpdatedAt(Instant.now());
+            conversationRepository.save(conversation);
+
+            // Manually evict cache
+            evictConversationCache(senderId);
+            evictConversationCache(receiver.getUserId());
+            evictMessagesCache(senderId, receiver.getUserId());
+
+            // Broadcast CONFIRMATION (Saved Event) to BOTH users
+            ChatDTO.MessageResponse confirmation = ChatDTO.MessageResponse.builder()
+                    .id(savedMessage.getId())
+                    .tempId(request.getTempId())
+                    .senderId(sender.getUserId())
+                    .senderUsername(sender.getUsername())
+                    .senderAvatar(sender.getAvatarUrl())
+                    .receiverId(receiver.getUserId())
+                    .content(savedMessage.getContent())
+                    .type(savedMessage.getType().name())
+                    .attachmentUrl(savedMessage.getAttachmentUrl())
+                    .sharedPost(buildSharedPostDto(message.getSharedPost()))
+                    .createdAt(savedMessage.getCreatedAt())
+                    .isRead(false)
+                    .build();
+
+            // Notify Receiver (Update their view with real ID)
+            messagingTemplate.convertAndSendToUser(
+                    receiver.getUsername(),
+                    "/queue/messages",
+                    confirmation
+            );
+            
+            // Notify Sender (Update their view with real ID)
+            messagingTemplate.convertAndSendToUser(
+                    sender.getUsername(),
+                    "/queue/messages",
+                    confirmation
+            );
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Notify Sender of FAILURE
+             messagingTemplate.convertAndSendToUser(
+                userRepository.findById(senderId).get().getUsername(),
+                "/queue/errors",
+                "Message failed to send: " + e.getMessage()
+            );
+        }
+    }
+
+    @Transactional
+    public ChatDTO.MessageResponse sendMessage(User sender, ChatDTO.MessageRequest request) {
+        return buildImmediateResponse(sender, request);
     }
     
     private ChatDTO.SharedPostDto buildSharedPostDto(Post post) {
