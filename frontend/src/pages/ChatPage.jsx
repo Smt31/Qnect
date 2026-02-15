@@ -20,6 +20,24 @@ const ChatPage = () => {
     const [hasMore, setHasMore] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
 
+    // Message cache — persists across chat switches
+    const messageCacheRef = useRef(new Map());
+
+    // Helper: get current chat cache key
+    const getCacheKey = (user, group) => {
+        if (group) return `group-${group.id}`;
+        if (user) return `dm-${user.otherUserId}`;
+        return null;
+    };
+
+    // Helper: save current messages to cache before switching
+    const saveCurrentToCache = () => {
+        const key = getCacheKey(selectedUser, selectedGroup);
+        if (key && messages.length > 0) {
+            messageCacheRef.current.set(key, { messages: [...messages], hasMore });
+        }
+    };
+
     const queryClient = useQueryClient();
     const location = useLocation();
 
@@ -283,15 +301,40 @@ const ChatPage = () => {
 
     // Handlers
     const handleSelectUser = async (conv) => {
+        // Save current chat messages to cache before switching
+        saveCurrentToCache();
+
         setSelectedGroup(null);
         setSelectedUser(conv);
+
+        // Check cache first
+        const cacheKey = `dm-${conv.otherUserId}`;
+        const cached = messageCacheRef.current.get(cacheKey);
+        if (cached) {
+            setMessages(cached.messages);
+            setHasMore(cached.hasMore);
+            setMessagesLoading(false);
+            // Mark as read in background if needed
+            if (conv.unreadCount > 0) {
+                chatApi.markAsRead(conv.otherUserId).then(() => {
+                    queryClient.invalidateQueries(['conversations']);
+                });
+            }
+            return;
+        }
+
+        // No cache — fetch from API
         setMessages([]);
         setHasMore(false);
         setMessagesLoading(true);
         try {
             const data = await chatApi.getMessages(conv.otherUserId);
-            setMessages(data.messages || []);
-            setHasMore(data.hasMore || false);
+            const msgs = data.messages || [];
+            const more = data.hasMore || false;
+            setMessages(msgs);
+            setHasMore(more);
+            // Save to cache
+            messageCacheRef.current.set(cacheKey, { messages: msgs, hasMore: more });
             if (conv.unreadCount > 0) {
                 await chatApi.markAsRead(conv.otherUserId);
                 queryClient.invalidateQueries(['conversations']);
@@ -331,15 +374,34 @@ const ChatPage = () => {
     };
 
     const handleSelectGroup = async (group) => {
+        // Save current chat messages to cache before switching
+        saveCurrentToCache();
+
         setSelectedUser(null);
         setSelectedGroup(group);
+
+        // Check cache first
+        const cacheKey = `group-${group.id}`;
+        const cached = messageCacheRef.current.get(cacheKey);
+        if (cached) {
+            setMessages(cached.messages);
+            setHasMore(cached.hasMore);
+            setMessagesLoading(false);
+            return;
+        }
+
+        // No cache — fetch from API
         setMessages([]);
         setHasMore(false);
         setMessagesLoading(true);
         try {
             const data = await groupApi.getMessages(group.id);
-            setMessages(data.messages || []);
-            setHasMore(data.hasMore || false);
+            const msgs = data.messages || [];
+            const more = data.hasMore || false;
+            setMessages(msgs);
+            setHasMore(more);
+            // Save to cache
+            messageCacheRef.current.set(cacheKey, { messages: msgs, hasMore: more });
         } catch (err) {
             console.error(err);
         } finally {

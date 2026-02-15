@@ -4,6 +4,7 @@ import com.example.Qpoint.dto.GroupDTO;
 import com.example.Qpoint.models.Group;
 import com.example.Qpoint.models.GroupMember;
 import com.example.Qpoint.models.User;
+import com.example.Qpoint.dto.GroupMemberProjection;
 import com.example.Qpoint.repository.GroupMemberRepository;
 import com.example.Qpoint.repository.GroupRepository;
 import com.example.Qpoint.repository.UserRepository;
@@ -251,7 +252,7 @@ public class GroupService {
     
     @Transactional(readOnly = true)
     public List<GroupDTO.GroupResponse> getMyGroups(Long userId) {
-        List<GroupMember> memberships = groupMemberRepository.findActiveGroupsByUserId(userId);
+        List<GroupMember> memberships = groupMemberRepository.findActiveGroupsByUserIdWithCreator(userId);
         
         // Bulk load all members for all groups (prevents N+1)
         List<Long> groupIds = memberships.stream()
@@ -263,10 +264,10 @@ public class GroupService {
         }
         
         // Group members by group ID
-        java.util.Map<Long, List<GroupMember>> membersByGroup = groupMemberRepository
-                .findActiveMembersByGroupIdIn(groupIds)
+        java.util.Map<Long, List<GroupMemberProjection>> membersByGroup = groupMemberRepository
+                .findActiveMembersProjectionsByGroupIdIn(groupIds)
                 .stream()
-                .collect(Collectors.groupingBy(gm -> gm.getGroup().getId()));
+                .collect(Collectors.groupingBy(GroupMemberProjection::getGroupId));
         
         return memberships.stream()
                 .map(gm -> mapToResponseWithMembers(gm.getGroup(), userId, membersByGroup.get(gm.getGroup().getId())))
@@ -287,10 +288,10 @@ public class GroupService {
                 .map(Group::getId)
                 .collect(Collectors.toList());
         
-        java.util.Map<Long, List<GroupMember>> membersByGroup = groupMemberRepository
-                .findActiveMembersByGroupIdIn(groupIds)
+        java.util.Map<Long, List<GroupMemberProjection>> membersByGroup = groupMemberRepository
+                .findActiveMembersProjectionsByGroupIdIn(groupIds)
                 .stream()
-                .collect(Collectors.groupingBy(gm -> gm.getGroup().getId()));
+                .collect(Collectors.groupingBy(GroupMemberProjection::getGroupId));
         
         return groups.stream()
                 .map(g -> mapToResponseWithMembers(g, currentUserId, membersByGroup.getOrDefault(g.getId(), Collections.emptyList())))
@@ -328,17 +329,19 @@ public class GroupService {
 
     // Mapping Helper - For single group (loads members from DB)
     private GroupDTO.GroupResponse mapToResponse(Group group, Long currentUserId) {
-        List<GroupMember> activeMembers = groupMemberRepository.findActiveMembersByGroupId(group.getId());
+        List<GroupMemberProjection> activeMembers = groupMemberRepository.findActiveMembersProjectionsByGroupId(group.getId());
         return mapToResponseWithMembers(group, currentUserId, activeMembers);
     }
     
     // Mapping Helper - For bulk operations (uses pre-loaded members)
-    private GroupDTO.GroupResponse mapToResponseWithMembers(Group group, Long currentUserId, List<GroupMember> activeMembers) {
+    private GroupDTO.GroupResponse mapToResponseWithMembers(Group group, Long currentUserId, List<GroupMemberProjection> activeMembers) {
         boolean isMember = false;
         boolean isAdmin = false;
         
-        for (GroupMember gm : activeMembers) {
-            if (gm.getUser().getUserId().equals(currentUserId)) {
+        if (activeMembers == null) activeMembers = Collections.emptyList();
+        
+        for (GroupMemberProjection gm : activeMembers) {
+            if (gm.getUserId().equals(currentUserId)) {
                 isMember = true;
                 if (gm.getRole() == GroupMember.Role.ADMIN) isAdmin = true;
                 break;
@@ -347,10 +350,10 @@ public class GroupService {
         
         List<GroupDTO.MemberDto> memberDtos = activeMembers.stream()
             .map(gm -> new GroupDTO.MemberDto(
-                gm.getUser().getUserId(),
-                gm.getUser().getUsername(),
-                gm.getUser().getFullName(),
-                gm.getUser().getAvatarUrl(),
+                gm.getUserId(),
+                gm.getUsername(),
+                gm.getFullName(),
+                gm.getAvatarUrl(),
                 gm.getRole(),
                 gm.getJoinedAt()
             )).collect(Collectors.toList());

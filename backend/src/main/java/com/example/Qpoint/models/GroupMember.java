@@ -9,6 +9,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "group_members", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"group_id", "user_id"})
+}, indexes = {
+        @Index(name = "idx_gm_user_left", columnList = "user_id, left_at"),
+        @Index(name = "idx_gm_group_left", columnList = "group_id, left_at")
 })
 @Data
 @NoArgsConstructor

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useMobileSidebar } from '../../context/MobileSidebarContext';
 import { useModal } from '../../context/ModalContext';
 import { groupApi } from '../../api';
@@ -12,7 +13,6 @@ export default function LeftSidebar({ user }) {
     const [myPostsOpen, setMyPostsOpen] = useState(
         location.pathname.startsWith('/my-questions') || location.pathname.startsWith('/my-posts')
     );
-    const [publicGroups, setPublicGroups] = useState([]);
     const [joiningGroupId, setJoiningGroupId] = useState(null);
 
     // Close sidebar on route change (mobile)
@@ -32,12 +32,15 @@ export default function LeftSidebar({ user }) {
         };
     }, [isOpen]);
 
-    // Fetch public groups (show all as topic channels)
-    useEffect(() => {
-        groupApi.getPublicGroups().then(data => {
-            setPublicGroups((data || []).slice(0, 3));
-        }).catch(err => console.error('Failed to load public groups:', err));
-    }, []);
+    // Fetch public groups with React Query (shared cache, no duplicate calls)
+    const { data: publicGroups = [] } = useQuery({
+        queryKey: ['publicGroups'],
+        queryFn: async () => {
+            const data = await groupApi.getPublicGroups();
+            return (data || []).slice(0, 3);
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
     const isActive = (path) => location.pathname === path;
     const isMyPostsActive = location.pathname.startsWith('/my-questions') || location.pathname.startsWith('/my-posts');

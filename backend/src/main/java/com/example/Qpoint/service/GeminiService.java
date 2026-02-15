@@ -7,6 +7,9 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
+import com.example.Qpoint.models.Comment;
+import com.example.Qpoint.models.Post;
+import org.springframework.stereotype.Service;
 @Service
 public class GeminiService {
 
@@ -284,5 +287,75 @@ public class GeminiService {
         public void setSuggestedTopics(List<String> suggestedTopics) { this.suggestedTopics = suggestedTopics; }
         public List<String> getChanges() { return changes; }
         public void setChanges(List<String> changes) { this.changes = changes; }
+    }
+
+    /**
+     * Generates a context-aware AI reply based on the post and recent comments.
+     * Use token optimization to stay within limits.
+     */
+    public String generateContextAwareReply(Post post, List<Comment> contextComments, String userQuery) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("Gemini API key is not configured.");
+        }
+
+        String prompt = buildContextAwarePrompt(post, contextComments, userQuery);
+
+        try {
+            return callGeminiApi(primaryModel, prompt);
+        } catch (Exception e) {
+            try {
+                return callGeminiApi(fallbackModel, prompt);
+            } catch (Exception e2) {
+                throw new RuntimeException("AI reply generation failed: " + e2.getMessage());
+            }
+        }
+    }
+
+    private String buildContextAwarePrompt(Post post, List<Comment> comments, String userQuery) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("You are Cue, a helpful and intelligent AI assistant on Qpoint. ");
+        sb.append("Answer the user's question based on the following post context and discussion thread.\n\n");
+        
+        // Post Context
+        sb.append("--- POST CONTEXT ---\n");
+        sb.append("Title: ").append(post.getTitle()).append("\n");
+        sb.append("Content: ").append(post.getContent()).append("\n");
+        sb.append("--------------------\n\n");
+
+        // Comment Context (Recent 50)
+        sb.append("--- RECENT COMMENTS (Context) ---\n");
+        if (comments != null && !comments.isEmpty()) {
+            // Sort by creation date ascending for logical flow in prompt (oldest to newest)
+            // Assuming the list passed is already recent ones, we just need correct order for reading.
+            // If the list is "newest first" (standard from Repo), we should reverse it.
+            List<Comment> sortedComments = new ArrayList<>(comments);
+            Collections.reverse(sortedComments);
+
+            for (Comment c : sortedComments) {
+                String authorName = c.getAuthor() != null ? c.getAuthor().getUsername() : "Unknown";
+                String content = c.getContent();
+                
+                // Truncate long comments
+                if (content.length() > 500) {
+                    content = content.substring(0, 497) + "...";
+                }
+                
+                // Minimal format: User: Content
+                sb.append(authorName).append(": ").append(content).append("\n");
+            }
+        } else {
+            sb.append("(No comments yet)\n");
+        }
+        sb.append("---------------------------------\n\n");
+
+        sb.append("User Query: ").append(userQuery).append("\n\n");
+        sb.append("Instructions:\n");
+        sb.append("1. If the user asks to summarize, summarize the 'RECENT COMMENTS' section.\n");
+        sb.append("2. If the user asks about the post, answer based on 'POST CONTEXT'.\n");
+        sb.append("3. If the user refers to 'this' or 'that', infer from the immediate context.\n");
+        sb.append("4. Be concise, helpful, and friendly. Use markdown if needed.\n");
+        sb.append("5. Do not repeat the user's name or add generic greetings.");
+
+        return sb.toString();
     }
 }

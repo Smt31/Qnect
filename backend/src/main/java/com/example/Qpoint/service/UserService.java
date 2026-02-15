@@ -535,4 +535,33 @@ public class UserService {
 
         userRepository.save(user);
     }
+    // AI User Constants
+    public static final String AI_USER_EMAIL = "cue@qpoint.system";
+    public static final String AI_USER_USERNAME = "cue";
+    public static final String AI_USER_FULLNAME = "Cue";
+
+    /**
+     * Gets or creates the system AI user account.
+     */
+    @Transactional
+    public User getOrCreateAiUser() {
+        return userRepository.findByEmail(AI_USER_EMAIL)
+                .orElseGet(() -> {
+                    User aiUser = User.builder()
+                            .email(AI_USER_EMAIL)
+                            .username(AI_USER_USERNAME)
+                            .fullName(AI_USER_FULLNAME)
+                            .passwordHash("$AI_SYSTEM_USER$") // Not a valid password, prevents login
+                            .allowPublicMessages(false)
+                            .reputation(0)
+                            .followersCount(0)
+                            .followingCount(0)
+                            .questionsCount(0)
+                            .answersCount(0)
+                            .createdAt(java.time.Instant.now())
+                            .updatedAt(java.time.Instant.now())
+                            .build();
+                    return userRepository.save(aiUser);
+                });
+    }
 }

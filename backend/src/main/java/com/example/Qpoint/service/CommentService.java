@@ -15,6 +15,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.Qpoint.models.Notification;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.List;
+import java.util.Collections;
+import java.util.ArrayList;
 
 @Service
 public class CommentService {
@@ -24,16 +29,20 @@ public class CommentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final com.example.Qpoint.repository.VoteRepository voteRepository;
+    private final GeminiService geminiService;
+    private final UserService userService;
 
     private final org.springframework.cache.CacheManager cacheManager;
 
-    public CommentService(CommentRepository commentRepository, PostRepository postRepository, UserRepository userRepository, NotificationService notificationService, org.springframework.cache.CacheManager cacheManager, com.example.Qpoint.repository.VoteRepository voteRepository) {
+    public CommentService(CommentRepository commentRepository, PostRepository postRepository, UserRepository userRepository, NotificationService notificationService, org.springframework.cache.CacheManager cacheManager, com.example.Qpoint.repository.VoteRepository voteRepository, GeminiService geminiService, UserService userService) {
         this.commentRepository = commentRepository;
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.cacheManager = cacheManager;
         this.voteRepository = voteRepository;
+        this.geminiService = geminiService;
+        this.userService = userService;
     }
     
     // ... [createComment and updateComment code remains from previous step, but I need to handle deleteComment correctly]
@@ -96,6 +105,43 @@ public class CommentService {
                 comment.getParent().getId(),
                 author.getFullName() + " replied to your comment on post: " + post.getTitle()
             );
+        }
+
+        // @cue AI Integration
+        String content = request.getContent();
+        if (content != null && content.toLowerCase().contains("@cue")) {
+            // Extract the query (everything after @cue or the whole message if it's mixed)
+            // Ideally, we treat the whole comment as the query context.
+            
+            // 1. Fetch Context (Limit to recent 50 comments)
+            Pageable contextPage = PageRequest.of(0, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
+            Page<Comment> recentComments = commentRepository.findByPostOrderByCreatedAtDesc(post, contextPage);
+            List<Comment> contextList = recentComments.getContent();
+
+            // 2. Generate AI Reply
+            try {
+                String aiReplyContent = geminiService.generateContextAwareReply(post, contextList, content);
+                
+                // 3. Create AI Comment
+                User aiUser = userService.getOrCreateAiUser();
+                Comment aiComment = new Comment();
+                aiComment.setPost(post);
+                aiComment.setAuthor(aiUser);
+                aiComment.setContent(aiReplyContent);
+                aiComment.setIsAiGenerated(true);
+                // Reply to the user's comment to keep thread clean
+                aiComment.setParent(savedComment); 
+                
+                commentRepository.save(aiComment);
+                
+                // Update post stats again
+                post.setCommentsCount(post.getCommentsCount() + 1);
+                postRepository.save(post);
+                
+            } catch (Exception e) {
+                System.err.println("Failed to generate @cue reply: " + e.getMessage());
+                // Don't fail the user's comment creation just because AI failed
+            }
         }
 
         evictFirstPageComments(postId);

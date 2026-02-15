@@ -22,19 +22,14 @@ public class AiCommentController {
     private final GeminiService geminiService;
     private final CommentService commentService;
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
-
-    // System AI user email - this user will be auto-created if it doesn't exist
-    private static final String AI_USER_EMAIL = "cue@qpoint.system";
-    private static final String AI_USER_USERNAME = "cue";
-    private static final String AI_USER_FULLNAME = "Cue";
+    private final com.example.Qpoint.service.UserService userService;
 
     public AiCommentController(GeminiService geminiService, CommentService commentService,
-                               PostRepository postRepository, UserRepository userRepository) {
+                               PostRepository postRepository, com.example.Qpoint.service.UserService userService) {
         this.geminiService = geminiService;
         this.commentService = commentService;
         this.postRepository = postRepository;
-        this.userRepository = userRepository;
+        this.userService = userService;
     }
 
     /**
@@ -85,7 +80,7 @@ public class AiCommentController {
             String aiAnswer = geminiService.generateAnswer(post.getTitle(), post.getContent());
 
             // Get or create AI user
-            User aiUser = getOrCreateAiUser();
+            User aiUser = userService.getOrCreateAiUser();
 
             // Create AI comment
             Comment aiComment = commentService.createAiComment(postId, aiUser, aiAnswer);
@@ -167,7 +162,7 @@ public class AiCommentController {
             String aiAnswer = geminiService.generateAnswer(post.getTitle(), post.getContent());
 
             // Get or create AI user
-            User aiUser = getOrCreateAiUser();
+            User aiUser = userService.getOrCreateAiUser();
 
             // Create new AI comment
             Comment aiComment = commentService.createAiComment(postId, aiUser, aiAnswer);
@@ -181,27 +176,5 @@ public class AiCommentController {
         }
     }
 
-    /**
-     * Gets or creates the system AI user account.
-     */
-    private User getOrCreateAiUser() {
-        return userRepository.findByEmail(AI_USER_EMAIL)
-                .orElseGet(() -> {
-                    User aiUser = User.builder()
-                            .email(AI_USER_EMAIL)
-                            .username(AI_USER_USERNAME)
-                            .fullName(AI_USER_FULLNAME)
-                            .passwordHash("$AI_SYSTEM_USER$") // Not a valid password, prevents login
-                            .allowPublicMessages(false)
-                            .reputation(0)
-                            .followersCount(0)
-                            .followingCount(0)
-                            .questionsCount(0)
-                            .answersCount(0)
-                            .createdAt(java.time.Instant.now())
-                            .updatedAt(java.time.Instant.now())
-                            .build();
-                    return userRepository.save(aiUser);
-                });
-    }
+
 }

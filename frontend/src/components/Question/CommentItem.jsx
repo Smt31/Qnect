@@ -267,38 +267,61 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
     return (
         <div className={`text-sm ${baseClasses} ${aiClasses}`}>
             <div className="flex gap-3">
-                <Link to={`/profile/${comment.author?.userId}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0 ${isAiComment
-                        ? 'bg-gradient-to-br from-purple-500 to-indigo-600'
-                        : comment.author?.userId === me?.userId
+                {isAiComment ? (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-900 shadow-lg shadow-purple-500/20 ring-1 ring-purple-500/30 overflow-hidden relative group">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-indigo-900/50 to-purple-900/50 opacity-50"></div>
+                        <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="q-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stopColor="#22d3ee" />
+                                    <stop offset="50%" stopColor="#a855f7" />
+                                    <stop offset="100%" stopColor="#ec4899" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="url(#q-gradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M16 16L19.5 19.5" stroke="url(#q-gradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                    </div>
+                ) : (
+                    <Link to={`/profile/${comment.author?.userId}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0 ${comment.author?.userId === me?.userId
                             ? 'bg-indigo-500'
                             : 'bg-gray-400'
-                        }`}>
-                        {isAiComment ? (
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                            </svg>
-                        ) : comment.author?.avatarUrl ? (
-                            <img src={comment.author.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                            comment.author?.fullName?.[0] || 'U'
-                        )}
-                    </div>
-                </Link>
+                            }`}>
+                            {comment.author?.avatarUrl ? (
+                                <img src={comment.author.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                                comment.author?.fullName?.[0] || 'U'
+                            )}
+                        </div>
+                    </Link>
+                )}
 
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                        <Link to={`/profile/${comment.author?.userId}`} className="font-semibold text-gray-900 hover:text-red-500">
-                            {comment.author?.username || comment.author?.userId || 'user'}
-                        </Link>
+                        {!isAiComment && (
+                            <Link to={`/profile/${comment.author?.userId}`} className="font-semibold text-gray-900 hover:text-red-500">
+                                {comment.author?.username || comment.author?.userId || 'user'}
+                            </Link>
+                        )}
 
                         {/* Cue Badge */}
                         {isAiComment && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-semibold shadow-sm">
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-900 ring-1 ring-purple-500/30 text-xs font-bold shadow-sm shadow-purple-500/20">
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <defs>
+                                        <linearGradient id="q-mini-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                            <stop offset="0%" stopColor="#22d3ee" />
+                                            <stop offset="50%" stopColor="#a855f7" />
+                                            <stop offset="100%" stopColor="#ec4899" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="url(#q-mini-gradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    <path d="M16 16L19.5 19.5" stroke="url(#q-mini-gradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
-                                Cue
+                                <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                                    Cue
+                                </span>
                             </span>
                         )}
 
@@ -477,17 +500,34 @@ export default function CommentItem({ comment, postId, refreshComments, me, dept
                                             onClick={() => handleMentionSelect(user)}
                                             onMouseEnter={() => setSelectedSuggestionIndex(index)}
                                         >
-                                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0 bg-gray-400">
-                                                {user.avatarUrl ? (
-                                                    <img
-                                                        src={user.avatarUrl}
-                                                        alt=""
-                                                        className="w-full h-full rounded-full object-cover"
-                                                    />
-                                                ) : (
-                                                    user.fullName?.[0] || 'U'
-                                                )}
-                                            </div>
+                                            {user.isAi ? (
+                                                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-900 shadow-lg shadow-purple-500/20 ring-1 ring-purple-500/30 overflow-hidden relative group">
+                                                    <div className="absolute inset-0 bg-gradient-to-tr from-indigo-900/50 to-purple-900/50 opacity-50"></div>
+                                                    <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <defs>
+                                                            <linearGradient id="q-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                                                <stop offset="0%" stopColor="#22d3ee" />
+                                                                <stop offset="50%" stopColor="#a855f7" />
+                                                                <stop offset="100%" stopColor="#ec4899" />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="url(#q-gradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                        <path d="M16 16L19.5 19.5" stroke="url(#q-gradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                </div>
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0 bg-gray-400">
+                                                    {user.avatarUrl ? (
+                                                        <img
+                                                            src={user.avatarUrl}
+                                                            alt=""
+                                                            className="w-full h-full rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        user.fullName?.[0] || 'U'
+                                                    )}
+                                                </div>
+                                            )}
                                             <div className="flex-1 min-w-0">
                                                 <div className="font-semibold text-sm text-gray-900 truncate">
                                                     {user.fullName}
