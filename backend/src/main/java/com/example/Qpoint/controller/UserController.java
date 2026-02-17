@@ -306,12 +306,12 @@ public class UserController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Page<UserProfileDto>> searchUsers(
+    public ResponseEntity<com.example.Qpoint.dto.PageDto<UserProfileDto>> searchUsers(
             @RequestParam String query,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         Page<UserProfileDto> users = userService.searchUsers(query, page, size);
-        return ResponseEntity.ok(users);
+        return ResponseEntity.ok(new com.example.Qpoint.dto.PageDto<>(users));
     }
 
     @GetMapping("/{id}/comments")

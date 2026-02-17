@@ -96,7 +96,7 @@ public class FeedController {
     }
 
     @GetMapping("/trending")
-    public ResponseEntity<Page<FeedPostDto>> getTrending(
+    public ResponseEntity<com.example.Qpoint.dto.PageDto<FeedPostDto>> getTrending(
             Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -116,7 +116,7 @@ public class FeedController {
         Page<FeedPostDto> trendingPosts =
                 postService.getTrendingPosts(page, size, userId);
 
-        return ResponseEntity.ok(trendingPosts);
+        return ResponseEntity.ok(new com.example.Qpoint.dto.PageDto<>(trendingPosts));
     }
 
     @GetMapping("/topics/trending")

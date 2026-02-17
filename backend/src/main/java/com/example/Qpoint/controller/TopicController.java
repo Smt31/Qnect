@@ -17,10 +17,10 @@ public class TopicController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<Topic>> getAllTopics(@RequestParam(defaultValue = "0") int page,
+    public ResponseEntity<com.example.Qpoint.dto.PageDto<Topic>> getAllTopics(@RequestParam(defaultValue = "0") int page,
                                                    @RequestParam(defaultValue = "10") int size) {
         Page<Topic> topics = topicService.getAllTopics(page, size);
-        return ResponseEntity.ok(topics);
+        return ResponseEntity.ok(new com.example.Qpoint.dto.PageDto<>(topics));
     }
 
     @GetMapping("/all")
@@ -35,10 +35,10 @@ public class TopicController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Page<Topic>> searchTopics(@RequestParam String query,
+    public ResponseEntity<com.example.Qpoint.dto.PageDto<Topic>> searchTopics(@RequestParam String query,
                                                    @RequestParam(defaultValue = "0") int page,
                                                    @RequestParam(defaultValue = "10") int size) {
         Page<Topic> topics = topicService.searchTopics(query, page, size);
-        return ResponseEntity.ok(topics);
+        return ResponseEntity.ok(new com.example.Qpoint.dto.PageDto<>(topics));
     }
 }

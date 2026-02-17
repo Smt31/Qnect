@@ -23,6 +23,7 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
     const [contextMenu, setContextMenu] = useState(null);
     const [showGroupDetails, setShowGroupDetails] = useState(false);
     const fileInputRef = useRef(null);
+    const inputRef = useRef(null);
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
     const sentinelRef = useRef(null);
@@ -117,6 +118,9 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
 
         const messageText = newMessage.trim();
         setNewMessage('');
+
+        // Keep focus on input after sending
+        inputRef.current?.focus();
 
         onSendMessage(messageText, 'TEXT').catch(error => {
             console.error("Failed to send", error);
@@ -508,6 +512,7 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                     {/* Input Container */}
                     <div className="flex-1 flex items-center bg-gray-50 hover:bg-gray-100/80 rounded-full px-4 py-3 transition-colors duration-200 border border-gray-100">
                         <input
+                            ref={inputRef}
                             type="text"
                             placeholder={isGroup ? `Message ${targetName}...` : "Type a message..."}
                             className="flex-1 bg-transparent border-none text-gray-900 focus:ring-0 focus:outline-none placeholder-gray-400 text-sm"
@@ -525,6 +530,8 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                     {/* Send Button */}
                     <button
                         type="submit"
+                        onMouseDown={(e) => e.preventDefault()} // Prevent button from stealing focus
+                        onTouchStart={(e) => e.preventDefault()} // Prevent focus loss on mobile touch
                         disabled={!newMessage.trim()}
                         className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 flex items-center justify-center text-white shadow-lg shadow-rose-500/30 hover:shadow-rose-500/50 transition-all duration-200 disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none disabled:cursor-not-allowed"
                     >
