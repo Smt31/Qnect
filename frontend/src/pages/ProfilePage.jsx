@@ -40,7 +40,7 @@ export default function ProfilePage() {
     setFollowing([]);
     setPendingRequests([]);
     setFollowedUsersMap({});
-    setActiveTab('overview');
+    setActiveTab('posts');
   }, [profileUserId]);
 
   // Fetch posts when profile or postType changes
@@ -77,7 +77,7 @@ export default function ProfilePage() {
     staleTime: 30 * 1000, // 30 seconds
   });
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('posts');
 
   // State for tabs that are loaded on demand
   const [followers, setFollowers] = useState([]);
@@ -405,7 +405,7 @@ export default function ProfilePage() {
 
                 {/* Tabs - Inside the card */}
                 <div className="flex border-t border-gray-100 px-5">
-                  {['overview', 'posts', 'followers', 'following'].concat(isMe ? ['requests'] : []).map((tab) => (
+                  {['posts', 'followers', 'following'].concat(isMe ? ['requests'] : []).map((tab) => (
                     <button
                       key={tab}
                       className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors capitalize ${activeTab === tab
@@ -423,12 +423,7 @@ export default function ProfilePage() {
 
               {/* Content Area */}
               <div>
-                {activeTab === 'overview' && (
-                  <div className="bg-white rounded-xl shadow-sm p-6 text-center">
-                    <p className="text-gray-500">Overview stats and highlights coming soon.</p>
-                    <button className="text-rose-500 font-medium mt-2 text-sm" onClick={() => setActiveTab('posts')}>View Posts</button>
-                  </div>
-                )}
+
 
                 {activeTab === 'posts' && (
                   <div className="space-y-3">

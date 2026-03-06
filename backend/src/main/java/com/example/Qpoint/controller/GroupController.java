@@ -110,6 +110,18 @@ public class GroupController {
         return ResponseEntity.ok(groupService.getPublicGroups(userId));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<List<GroupDTO.GroupResponse>> searchGroups(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam String q) {
+        Long userId = null;
+        if (userDetails != null) {
+            User user = userService.findByUsername(userDetails.getUsername());
+            userId = user.getUserId();
+        }
+        return ResponseEntity.ok(groupService.searchPublicGroups(q, userId));
+    }
+
     @PostMapping("/{groupId}/join")
     public ResponseEntity<GroupDTO.GroupResponse> joinGroup(
             @AuthenticationPrincipal UserDetails userDetails,

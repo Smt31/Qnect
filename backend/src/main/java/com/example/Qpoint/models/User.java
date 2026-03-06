@@ -64,6 +64,10 @@ public class User {
 
 
     @Builder.Default
+    @Column(nullable = false, length = 20)
+    private String role = "USER";
+
+    @Builder.Default
     @Column(columnDefinition = "integer default 0")
     private Integer acceptedAnswersCount = 0;
 

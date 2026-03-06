@@ -451,6 +451,7 @@ public class UserService {
         // transaction closes
         dto.setSkills(user.getSkills() != null ? new java.util.ArrayList<>(user.getSkills()) : null);
         dto.setAllowPublicMessages(user.getAllowPublicMessages());
+        dto.setRole(user.getRole());
         dto.setTopics(user.getTopics() != null ? new java.util.HashSet<>(user.getTopics()) : null);
         return dto;
     }

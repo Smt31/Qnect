@@ -39,6 +39,9 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     // Delete all members of a group
     void deleteAllByGroupId(Long groupId);
     
+    // Count active members
+    long countByGroupIdAndLeftAtIsNull(Long groupId);
+    
     // Bulk fetch members for multiple groups (prevents N+1)
     @Query("SELECT gm FROM GroupMember gm JOIN FETCH gm.user WHERE gm.group.id IN :groupIds AND gm.leftAt IS NULL")
     List<GroupMember> findActiveMembersByGroupIdIn(@Param("groupIds") List<Long> groupIds);

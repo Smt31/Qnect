@@ -43,10 +43,11 @@ public class JwtUtil {
      * @param username username
      * @param ttlMs    time to live in milliseconds
      */
-    public String generateToken(Long userId, String email, String username, long ttlMs) {
+    public String generateToken(Long userId, String email, String username, String role, long ttlMs) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("uid", userId);
         claims.put("username", username);
+        claims.put("role", role != null ? role : "USER");
 
         long nowMillis = System.currentTimeMillis();
         Date now = new Date(nowMillis);

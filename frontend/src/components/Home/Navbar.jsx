@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { queryClient } from '../../App';
 import { useUnreadNotificationCount } from '../../api/queryHooks';
 import { useMobileSidebar } from '../../context/MobileSidebarContext';
+import FeedbackModal from '../FeedbackModal';
 
 const Navbar = ({ user }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const { toggle: toggleSidebar } = useMobileSidebar();
 
   // Fetch unread notification count
@@ -160,6 +162,30 @@ const Navbar = ({ user }) => {
                     Settings
                   </button>
 
+                  {user?.role === 'ADMIN' && (
+                    <button
+                      onClick={() => {
+                        navigate('/admin');
+                        setIsDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                      Admin Dashboard
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setIsFeedbackOpen(true);
+                      setIsDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#FF6B6B] transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                    Feedback
+                  </button>
+
                   <div className="border-t border-gray-50 my-1"></div>
 
                   <button
@@ -175,6 +201,7 @@ const Navbar = ({ user }) => {
           </div>
         </div>
       </div>
+      <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
     </header>
   );
 };

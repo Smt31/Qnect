@@ -17,6 +17,8 @@ import NotificationsPage from './pages/NotificationsPage';
 import ChatPage from './pages/ChatPage';
 import TopicPage from './pages/TopicPage';
 import NewsPage from './pages/NewsPage';
+import AdminPage from './pages/AdminPage';
+import AdminRoute from './components/AdminRoute';
 
 // Export queryClient so it can be used to clear cache on login/logout
 export const queryClient = new QueryClient({
@@ -61,6 +63,7 @@ export default function App() {
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/topic/:id" element={<TopicPage />} />
                 <Route path="/news" element={<NewsPage />} />
+                <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
               <CreatePostModal />

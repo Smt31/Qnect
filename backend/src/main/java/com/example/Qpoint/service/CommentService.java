@@ -5,6 +5,8 @@ import com.example.Qpoint.dto.PostCommentDto;
 import com.example.Qpoint.models.Comment;
 import com.example.Qpoint.models.Post;
 import com.example.Qpoint.models.User;
+import com.example.Qpoint.models.AnswerRequest;
+import com.example.Qpoint.repository.AnswerRequestRepository;
 import com.example.Qpoint.repository.CommentRepository;
 import com.example.Qpoint.repository.PostRepository;
 import com.example.Qpoint.repository.UserRepository;
@@ -31,10 +33,11 @@ public class CommentService {
     private final com.example.Qpoint.repository.VoteRepository voteRepository;
     private final GeminiService geminiService;
     private final UserService userService;
+    private final AnswerRequestRepository answerRequestRepository;
 
     private final org.springframework.cache.CacheManager cacheManager;
 
-    public CommentService(CommentRepository commentRepository, PostRepository postRepository, UserRepository userRepository, NotificationService notificationService, org.springframework.cache.CacheManager cacheManager, com.example.Qpoint.repository.VoteRepository voteRepository, GeminiService geminiService, UserService userService) {
+    public CommentService(CommentRepository commentRepository, PostRepository postRepository, UserRepository userRepository, NotificationService notificationService, org.springframework.cache.CacheManager cacheManager, com.example.Qpoint.repository.VoteRepository voteRepository, GeminiService geminiService, UserService userService, AnswerRequestRepository answerRequestRepository) {
         this.commentRepository = commentRepository;
         this.postRepository = postRepository;
         this.userRepository = userRepository;
@@ -43,6 +46,7 @@ public class CommentService {
         this.voteRepository = voteRepository;
         this.geminiService = geminiService;
         this.userService = userService;
+        this.answerRequestRepository = answerRequestRepository;
     }
     
     // ... [createComment and updateComment code remains from previous step, but I need to handle deleteComment correctly]
@@ -81,6 +85,27 @@ public class CommentService {
         // }
 
         Comment savedComment = commentRepository.save(comment);
+
+        // Resolve any pending answer requests
+        java.util.Optional<AnswerRequest> pendingRequest = answerRequestRepository.findByQuestionAndRequestedToAndStatus(post, author, AnswerRequest.RequestStatus.PENDING);
+        if (pendingRequest.isPresent()) {
+            AnswerRequest req = pendingRequest.get();
+            req.setStatus(AnswerRequest.RequestStatus.ANSWERED);
+            answerRequestRepository.save(req);
+
+            // Give reputation point (+5) for answering requested question
+            author.setReputation(author.getReputation() + 5);
+            userRepository.save(author);
+
+            // Notify the user who requested the answer
+            notificationService.createNotification(
+                req.getRequestedBy().getUserId(),
+                author.getUserId(),
+                Notification.NotificationType.ANSWER_POST,
+                post.getId(),
+                author.getFullName() + " fulfilled your request to answer: " + post.getTitle()
+            );
+        }
 
         // Increment comment count on post (only for top-level comments? or all? usually all)
         post.setCommentsCount(post.getCommentsCount() + 1);

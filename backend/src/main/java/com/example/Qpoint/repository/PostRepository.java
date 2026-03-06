@@ -74,8 +74,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             nativeQuery = true)
     Page<Post> findByTopicIdRanked(@Param("topicId") Long topicId, Pageable pageable);
     
-    @Query("SELECT p FROM Post p WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.content) LIKE LOWER(CONCAT('%', :query, '%'))")
-    Page<Post> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(@Param("query") String title, @Param("query") String content, Pageable pageable);
+    @Query("SELECT p FROM Post p WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :title, '%')) OR LOWER(p.content) LIKE LOWER(CONCAT('%', :content, '%'))")
+    Page<Post> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(@Param("title") String title, @Param("content") String content, Pageable pageable);
     
     
     @Query("SELECT p FROM Post p JOIN FETCH p.author ORDER BY p.baseHotnessScore DESC, p.createdAt DESC")

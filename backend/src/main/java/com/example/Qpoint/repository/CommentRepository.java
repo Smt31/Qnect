@@ -17,6 +17,14 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     Page<Comment> findByPostOrderByCreatedAtDesc(Post post, Pageable pageable);
     List<Comment> findByPostOrderByCreatedAtDesc(Post post); // For news comments without pagination
     Page<Comment> findByAuthorOrderByCreatedAtDesc(User author, Pageable pageable);
+    @Query(value = "SELECT c FROM Comment c LEFT JOIN FETCH c.author ORDER BY c.createdAt DESC",
+           countQuery = "SELECT COUNT(c) FROM Comment c")
+    Page<Comment> findAllWithAuthor(Pageable pageable);
+
+    @Query(value = "SELECT c FROM Comment c LEFT JOIN FETCH c.author WHERE LOWER(c.content) LIKE LOWER(CONCAT('%', :content, '%')) ORDER BY c.createdAt DESC",
+           countQuery = "SELECT COUNT(c) FROM Comment c WHERE LOWER(c.content) LIKE LOWER(CONCAT('%', :content, '%'))")
+    Page<Comment> findByContentContainingIgnoreCaseWithAuthor(@Param("content") String content, Pageable pageable);
+
     void deleteByPost(Post post);
     
     // AI Comment methods

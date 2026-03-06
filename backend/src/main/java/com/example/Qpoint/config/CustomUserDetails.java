@@ -9,27 +9,34 @@ import java.util.Collection;
 import java.util.Collections;
 
 /**
- * Custom UserDetails implementation that wraps username
+ * Custom UserDetails implementation that wraps username, userId, and role.
  */
 @Getter
 public class CustomUserDetails implements UserDetails {
     
     private final String username;
     private final Long userId;
+    private final String role;
     
-    public CustomUserDetails(String username, Long userId) {
+    public CustomUserDetails(String username, Long userId, String role) {
         this.username = username;
         this.userId = userId;
+        this.role = role != null ? role : "USER";
+    }
+    
+    public CustomUserDetails(String username, Long userId) {
+        this(username, userId, "USER");
     }
     
     public CustomUserDetails(String username) {
-        this.username = username;
-        this.userId = null;
+        this(username, null, "USER");
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+        return Collections.singletonList(
+            new SimpleGrantedAuthority("ROLE_" + role)
+        );
     }
 
     @Override

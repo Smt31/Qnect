@@ -22,5 +22,6 @@ public class UserProfileDto {
     private List<String> skills;
     private Boolean allowPublicMessages;
     private Boolean isFollowing;
+    private String role;
     private java.util.Set<com.example.Qpoint.models.Topic> topics;
 }

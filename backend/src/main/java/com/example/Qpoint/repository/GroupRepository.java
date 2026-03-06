@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 
@@ -24,4 +25,12 @@ public interface GroupRepository extends JpaRepository<Group, Long> {
     List<Group> findPublicGroupsWithCreator();
     
     List<Group> findByIsPrivateFalseAndNameContainingIgnoreCase(String query);
+    
+    @Query(value = "SELECT g FROM Group g LEFT JOIN FETCH g.createdBy",
+           countQuery = "SELECT COUNT(g) FROM Group g")
+    Page<Group> findAllWithCreator(org.springframework.data.domain.Pageable pageable);
+
+    @Query(value = "SELECT g FROM Group g LEFT JOIN FETCH g.createdBy WHERE LOWER(g.name) LIKE LOWER(CONCAT('%', :name, '%')) OR LOWER(g.description) LIKE LOWER(CONCAT('%', :description, '%'))",
+           countQuery = "SELECT COUNT(g) FROM Group g WHERE LOWER(g.name) LIKE LOWER(CONCAT('%', :name, '%')) OR LOWER(g.description) LIKE LOWER(CONCAT('%', :description, '%'))")
+    Page<Group> findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCaseWithCreator(@Param("name") String name, @Param("description") String description, org.springframework.data.domain.Pageable pageable);
 }

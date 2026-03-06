@@ -298,6 +298,28 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<GroupDTO.GroupResponse> searchPublicGroups(String query, Long currentUserId) {
+        List<Group> groups = groupRepository.findByIsPrivateFalseAndNameContainingIgnoreCase(query);
+
+        if (groups.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> groupIds = groups.stream()
+                .map(Group::getId)
+                .collect(Collectors.toList());
+
+        java.util.Map<Long, List<GroupMemberProjection>> membersByGroup = groupMemberRepository
+                .findActiveMembersProjectionsByGroupIdIn(groupIds)
+                .stream()
+                .collect(Collectors.groupingBy(GroupMemberProjection::getGroupId));
+
+        return groups.stream()
+                .map(g -> mapToResponseWithMembers(g, currentUserId, membersByGroup.getOrDefault(g.getId(), Collections.emptyList())))
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public GroupDTO.GroupResponse joinPublicGroup(Long groupId, Long userId) {
         Group group = groupRepository.findById(groupId)

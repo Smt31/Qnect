@@ -49,7 +49,7 @@ public class AuthController {
         }
 
         User u = user.get();
-        String token = jwtUtil.generateToken(u.getUserId(), u.getEmail(), u.getUsername(), accessTokenTtlMs);
+        String token = jwtUtil.generateToken(u.getUserId(), u.getEmail(), u.getUsername(), u.getRole(), accessTokenTtlMs);
         return ResponseEntity.ok(
                 new AuthResponse(
                         true,
@@ -78,7 +78,7 @@ public class AuthController {
             User user = userService.login(req.getEmail(), req.getPassword());
 
             // Issue JWT directly on successful login
-            String token = jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getUsername(), accessTokenTtlMs);
+            String token = jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getUsername(), user.getRole(), accessTokenTtlMs);
 
             return ResponseEntity.ok(
                     new AuthResponse(

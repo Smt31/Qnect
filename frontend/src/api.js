@@ -248,6 +248,7 @@ export const topicApi = {
   getAllTopics: (page = 0, size = 10) => get(`/api/topics?page=${page}&size=${size}`, true),
 };
 
+
 export const requestApi = {
   createRequest: (questionId, expertId) => post('/api/requests', { questionId, expertId }, true),
 
@@ -300,6 +301,19 @@ export const aiApi = {
   refinePost: (title, description) => post('/api/ai/refine', { title, description }, true),
 };
 
+export const adminApi = {
+  getStats: () => get('/api/admin/stats', true),
+  getUsers: (query = '', page = 0, size = 20) => get(`/api/admin/users?query=${encodeURIComponent(query)}&page=${page}&size=${size}`, true),
+  getPosts: (query = '', page = 0, size = 20) => get(`/api/admin/posts?query=${encodeURIComponent(query)}&page=${page}&size=${size}`, true),
+  getComments: (query = '', page = 0, size = 20) => get(`/api/admin/comments?query=${encodeURIComponent(query)}&page=${page}&size=${size}`, true),
+  getGroups: (query = '', page = 0, size = 20) => get(`/api/admin/groups?query=${encodeURIComponent(query)}&page=${page}&size=${size}`, true),
+  deleteUser: (id) => del(`/api/admin/users/${id}`, true),
+  deletePost: (id) => del(`/api/admin/posts/${id}`, true),
+  deleteComment: (id) => del(`/api/admin/comments/${id}`, true),
+  deleteGroup: (id) => del(`/api/admin/groups/${id}`, true),
+  updateRole: (id, role) => put(`/api/admin/users/${id}/role`, { role }, true),
+};
+
 export const newsApi = {
   // Get all news or by category
   getNews: (category) => {
@@ -327,6 +341,7 @@ export const newsApi = {
 };
 
 export const groupApi = {
+  searchGroups: (query) => get(`/api/groups/search?q=${encodeURIComponent(query)}`, true),
   createGroup: (groupData) => post('/api/groups', groupData, true),
   getGroupDetails: (groupId) => get(`/api/groups/${groupId}`, true),
   getMyGroups: () => get('/api/groups/my', true),

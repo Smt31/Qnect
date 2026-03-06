@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getAuthToken, questionApi, userApi, topicApi } from '../api';
+import { getAuthToken, questionApi, userApi, topicApi, groupApi } from '../api';
 import { useCurrentUser, useFollowTopic, useUnfollowTopic } from '../api/queryHooks';
 
 const SearchPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('posts'); // 'posts', 'users', or 'topics'
+  const [activeTab, setActiveTab] = useState('posts'); // 'posts', 'users', 'topics', or 'groups'
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,6 +44,9 @@ const SearchPage = () => {
         results = Array.isArray(response) ? response : (response.content || []);
       } else if (tab === 'topics') {
         const response = await topicApi.searchTopics(query);
+        results = Array.isArray(response) ? response : (response.content || []);
+      } else if (tab === 'groups') {
+        const response = await groupApi.searchGroups(query);
         results = Array.isArray(response) ? response : (response.content || []);
       }
 
@@ -84,6 +87,8 @@ const SearchPage = () => {
     });
   };
 
+  const tabs = ['posts', 'users', 'topics', 'groups'];
+
   return (
     <div className="search-page max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="search-layout">
@@ -118,33 +123,18 @@ const SearchPage = () => {
 
             {/* Tabs */}
             <div className="flex border-b border-gray-200">
-              <button
-                className={`py-2 px-4 font-medium text-sm focus:outline-none ${activeTab === 'posts'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                onClick={() => handleTabChange('posts')}
-              >
-                Posts
-              </button>
-              <button
-                className={`py-2 px-4 font-medium text-sm focus:outline-none ${activeTab === 'users'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                onClick={() => handleTabChange('users')}
-              >
-                Users
-              </button>
-              <button
-                className={`py-2 px-4 font-medium text-sm focus:outline-none ${activeTab === 'topics'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                onClick={() => handleTabChange('topics')}
-              >
-                Topics
-              </button>
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  className={`py-2 px-4 font-medium text-sm focus:outline-none capitalize ${activeTab === tab
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  onClick={() => handleTabChange(tab)}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -196,7 +186,7 @@ const SearchPage = () => {
           {!loading && !error && searchResults.length > 0 && (
             <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
               <h2 className="text-xl font-bold mb-4">
-                {searchResults.length} {activeTab === 'posts' ? 'post' : activeTab === 'topics' ? 'topic' : 'user'}{searchResults.length !== 1 ? 's' : ''} found
+                {searchResults.length} {activeTab === 'posts' ? 'post' : activeTab === 'topics' ? 'topic' : activeTab === 'groups' ? 'group' : 'user'}{searchResults.length !== 1 ? 's' : ''} found
               </h2>
 
               <div className="space-y-6">
@@ -285,11 +275,77 @@ const SearchPage = () => {
                     </div>
                   ))
                 )}
+
+                {activeTab === 'groups' && (
+                  searchResults.map(group => (
+                    <div key={group.id} className="w-full">
+                      <GroupResultItem group={group} />
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
         </main>
       </div>
+    </div>
+  );
+};
+
+const GroupResultItem = ({ group }) => {
+  const navigate = useNavigate();
+  const [joining, setJoining] = useState(false);
+  const [joined, setJoined] = useState(group.isMember || group.member);
+
+  const handleJoin = async () => {
+    setJoining(true);
+    try {
+      await groupApi.joinGroup(group.id);
+      setJoined(true);
+    } catch (e) {
+      console.error('Failed to join group:', e);
+      alert(e.message || 'Failed to join group');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between border-b border-gray-100 pb-6 last:border-0 last:pb-0">
+      <div className="flex items-center space-x-4">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0 overflow-hidden">
+          {group.avatarUrl ? (
+            <img src={group.avatarUrl} alt={group.name} className="w-full h-full object-cover" />
+          ) : (
+            group.name?.[0]?.toUpperCase() || 'G'
+          )}
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">{group.name}</h3>
+          {group.description && (
+            <p className="text-sm text-gray-600 mt-0.5 line-clamp-1">{group.description}</p>
+          )}
+          <p className="text-xs text-gray-400 mt-1">
+            {group.members?.length || 0} member{(group.members?.length || 0) !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+      {joined ? (
+        <button
+          onClick={() => navigate('/chat')}
+          className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+        >
+          Open
+        </button>
+      ) : (
+        <button
+          onClick={handleJoin}
+          disabled={joining}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+        >
+          {joining ? 'Joining...' : 'Join'}
+        </button>
+      )}
     </div>
   );
 };
