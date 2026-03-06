@@ -1,0 +1,43 @@
+
+> [ERROR] COMPILATION ERROR : 
+> [ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoi
+nt/service/PostService.java:[488,39] cannot find symbol
+    symbol:   method findByTagIgnoreCaseRanked(java.lang.Strin
+g,org.springframework.data.domain.Pageable)
+    location: variable postRepository of type 
+com.example.Qpoint.repository.PostRepository
+> [ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoi
+nt/service/PostService.java:[492,44] cannot find symbol
+    symbol:   method findByTagIgnoreCaseRanked(java.lang.Strin
+g,org.springframework.data.domain.Pageable)
+    location: variable postRepository of type 
+com.example.Qpoint.repository.PostRepository
+> [ERROR] Failed to execute goal 
+org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile 
+(default-compile) on project Qpoint: Compilation failure: 
+Compilation failure: 
+> [ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoi
+nt/service/PostService.java:[488,39] cannot find symbol
+> [ERROR]   symbol:   method findByTagIgnoreCaseRanked(java.la
+ng.String,org.springframework.data.domain.Pageable)
+> [ERROR]   location: variable postRepository of type 
+com.example.Qpoint.repository.PostRepository
+> [ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoi
+nt/service/PostService.java:[492,44] cannot find symbol
+> [ERROR]   symbol:   method findByTagIgnoreCaseRanked(java.la
+ng.String,org.springframework.data.domain.Pageable)
+> [ERROR]   location: variable postRepository of type 
+com.example.Qpoint.repository.PostRepository
+> [ERROR] -> [Help 1]
+> [ERROR] 
+> [ERROR] To see the full stack trace of the errors, re-run 
+Maven with the -e switch.
+> [ERROR] Re-run Maven using the -X switch to enable full 
+debug logging.
+> [ERROR] 
+> [ERROR] For more information about the errors and possible 
+solutions, please read the following articles:
+> [ERROR] [Help 1] http://cwiki.apache.org/confluence/display/
+MAVEN/MojoFailureException
+
+

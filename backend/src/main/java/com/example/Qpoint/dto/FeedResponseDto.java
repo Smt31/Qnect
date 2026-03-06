@@ -9,4 +9,5 @@ public class FeedResponseDto {
     private List<FeedPostDto> feed;
     private List<FeedPostDto> trending;
     private SuggestionsDto suggestions;
+    private String nextCursor;
 }

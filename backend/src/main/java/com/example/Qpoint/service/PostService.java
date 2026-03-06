@@ -310,55 +310,114 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
-    public Page<FeedPostDto> getFeedForUser(Long userId, FeedTab tab, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+    public com.example.Qpoint.dto.CursorPageDto<FeedPostDto> getFeedForUser(Long userId, FeedTab tab, String cursor, int size) {
+        Pageable pageable = PageRequest.of(0, size); // page is always 0 for cursors
 
-        Page<Post> posts;
+        List<Post> postsList;
+        String nextCursor = null;
         if (tab == null) tab = FeedTab.FOR_YOU;
 
-        // Use queries that exclude user's own posts and NEWS_DISCUSSION type
+        // Use cursor-based queries
         switch (tab) {
-            case RECENT -> posts = postRepository.findAllExcludingUser(userId, pageable);
-            case UNANSWERED -> posts = postRepository.findUnansweredPostsExcludingUser(userId, pageable);
+            case RECENT -> {
+                if (cursor != null && !cursor.isEmpty()) {
+                    java.time.Instant cursorTime = java.time.Instant.parse(cursor);
+                    postsList = postRepository.findRecentExcludingUserWithCursor(userId, cursorTime, pageable);
+                } else {
+                    postsList = postRepository.findRecentExcludingUser(userId, pageable);
+                }
+                if (!postsList.isEmpty()) {
+                    nextCursor = postsList.get(postsList.size() - 1).getCreatedAt().toString();
+                }
+            }
+            case UNANSWERED -> {
+                 if (cursor != null && !cursor.isEmpty()) {
+                    java.time.Instant cursorTime = java.time.Instant.parse(cursor);
+                    postsList = postRepository.findUnansweredExcludingUserWithCursor(userId, cursorTime, pageable);
+                } else {
+                    postsList = postRepository.findUnansweredExcludingUser(userId, pageable);
+                }
+                if (!postsList.isEmpty()) {
+                    nextCursor = postsList.get(postsList.size() - 1).getCreatedAt().toString();
+                }
+            }
             case FOR_YOU -> {
                 // 1. Get Ranked IDs
-                Page<Long> postIdsPage = postRepository.findPersonalizedFeedIds(userId, pageable);
+                List<Object[]> rawIds;
+                if (cursor != null && !cursor.isEmpty() && cursor.contains("_")) {
+                    String[] parts = cursor.split("_");
+                    double cursorScore = Double.parseDouble(parts[0]);
+                    long cursorId = Long.parseLong(parts[1]);
+                    rawIds = postRepository.findPersonalizedFeedIdsWithCursor(userId, cursorScore, cursorId, size);
+                } else {
+                    rawIds = postRepository.findPersonalizedFeedIdsInitial(userId, size);
+                }
                 
-                if (postIdsPage.isEmpty()) {
-                    posts = Page.empty(pageable);
+                if (rawIds.isEmpty()) {
+                    postsList = java.util.Collections.emptyList();
                 } else {
                     // 2. Fetch Entities (with Author)
-                    List<Long> ids = postIdsPage.getContent();
+                    List<Long> ids = rawIds.stream()
+                        .map(row -> ((Number) row[0]).longValue())
+                        .collect(java.util.stream.Collectors.toList());
+
                     List<Post> fetchedPosts = postRepository.findByIdsWithAuthor(ids);
                     
                     // 3. Re-sort to match ranking order (Fetched list isn't guaranteed to match IN clause order)
                     java.util.Map<Long, Post> postMap = fetchedPosts.stream()
                             .collect(java.util.stream.Collectors.toMap(Post::getId, java.util.function.Function.identity()));
                     
-                    List<Post> orderedPosts = ids.stream()
+                    postsList = ids.stream()
                             .map(postMap::get)
                             .filter(java.util.Objects::nonNull)
                             .collect(java.util.stream.Collectors.toList());
-                            
-                    posts = new org.springframework.data.domain.PageImpl<>(orderedPosts, pageable, postIdsPage.getTotalElements());
-                    
-                    // Fallback to recent posts if personalized feed is empty (Cold Start)
-                    if (posts.isEmpty() && page == 0) {
-                         // Default to standard For You (based on engagement only, no time limit) or Recent
-                         posts = postRepository.findForYouPostsExcludingUser(userId, pageable);
+
+                    // nextCursor is "finalScore_postId"
+                    if (!postsList.isEmpty() && rawIds.size() == size) {
+                        Object[] lastRow = rawIds.get(rawIds.size() - 1);
+                        double lastScore = ((Number) lastRow[1]).doubleValue();
+                        long lastId = ((Number) lastRow[0]).longValue();
+                        nextCursor = lastScore + "_" + lastId;
                     }
                 }
+                
+                // Fallback to recent posts if personalized feed is empty (Cold Start)
+                if (postsList.isEmpty() && (cursor == null || cursor.isEmpty())) {
+                     postsList = postRepository.findForYouFallbackExcludingUser(userId, pageable);
+                     if (!postsList.isEmpty() && postsList.size() == size) {
+                         Post lastPost = postsList.get(postsList.size() - 1);
+                         nextCursor = "fallback_" + lastPost.getBaseHotnessScore() + "_" + lastPost.getId();
+                     }
+                } else if (cursor != null && cursor.startsWith("fallback_")) {
+                     String[] parts = cursor.split("_");
+                     double cursorScore = Double.parseDouble(parts[1]);
+                     long cursorId = Long.parseLong(parts[2]);
+                     postsList = postRepository.findForYouFallbackExcludingUserWithCursor(userId, cursorScore, cursorId, pageable);
+                     if (!postsList.isEmpty() && postsList.size() == size) {
+                         Post lastPost = postsList.get(postsList.size() - 1);
+                         nextCursor = "fallback_" + lastPost.getBaseHotnessScore() + "_" + lastPost.getId();
+                     }
+                }
             }
-            default -> posts = postRepository.findForYouPostsExcludingUser(userId, pageable);
+            default -> {
+                postsList = postRepository.findForYouFallbackExcludingUser(userId, pageable);
+                if (!postsList.isEmpty() && postsList.size() == size) {
+                    Post lastPost = postsList.get(postsList.size() - 1);
+                    nextCursor = "fallback_" + lastPost.getBaseHotnessScore() + "_" + lastPost.getId();
+                }
+            }
         }
 
         // Use bulk conversion to avoid N+1 queries
-        return convertToFeedPostDtoBulk(posts, userId);
-    }
-
-    @Transactional(readOnly = true)
-    public Page<FeedPostDto> getFeedForUser(Long userId, int page, int size) {
-        return getFeedForUser(userId, FeedTab.FOR_YOU, page, size);
+        // wrap in pageImpl temporarily just to reuse convertToFeedPostDtoBulk API
+        Page<Post> tempPage = new org.springframework.data.domain.PageImpl<>(postsList);
+        List<FeedPostDto> dtos = convertToFeedPostDtoBulk(tempPage, userId).getContent();
+        
+        // Return clear cursor response
+        com.example.Qpoint.dto.CursorPageDto<FeedPostDto> response = new com.example.Qpoint.dto.CursorPageDto<>();
+        response.setContent(dtos);
+        response.setNextCursor(nextCursor);
+        return response;
     }
 
     /**

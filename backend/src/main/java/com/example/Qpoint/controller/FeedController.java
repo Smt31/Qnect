@@ -42,7 +42,7 @@ public class FeedController {
     public ResponseEntity<FeedResponseDto> getFeed(
             Authentication authentication,
             @RequestParam(value = "tab", defaultValue = "FOR_YOU") String tabStr,
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "10") int size
     ) {
         PostService.FeedTab tab;
@@ -71,11 +71,8 @@ public class FeedController {
 
             UserProfileDto currentUser = userService.getUserProfile(userId);
 
-            Page<FeedPostDto> feedPosts =
-                    postService.getFeedForUser(userId, tab, page, size);
-
-            Page<FeedPostDto> trendingPosts =
-                    postService.getTrendingPosts(page, 5, userId);
+            com.example.Qpoint.dto.CursorPageDto<FeedPostDto> feedPosts =
+                    postService.getFeedForUser(userId, tab, cursor, size);
 
             SuggestionsDto suggestions =
                     userService.getUserSuggestions(userId);
@@ -83,8 +80,8 @@ public class FeedController {
             FeedResponseDto response = new FeedResponseDto();
             response.setUser(currentUser);
             response.setFeed(new ArrayList<>(feedPosts.getContent()));
-            response.setTrending(new ArrayList<>(trendingPosts.getContent()));
             response.setSuggestions(suggestions);
+            response.setNextCursor(feedPosts.getNextCursor());
 
             return ResponseEntity.ok(response);
 

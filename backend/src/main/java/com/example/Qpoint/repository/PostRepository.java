@@ -25,6 +25,26 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     @Query("SELECT p FROM Post p JOIN p.tags t WHERE LOWER(t) = LOWER(:tag) ORDER BY p.createdAt DESC")
     Page<Post> findByTagIgnoreCaseOrderByCreatedAtDesc(@Param("tag") String tag, Pageable pageable);
+
+    @Query(value = """
+            SELECT p.* FROM posts p
+            JOIN post_tags pt ON p.id = pt.post_id
+            WHERE LOWER(pt.tag) = LOWER(:tag)
+            ORDER BY (
+                (p.upvotes * 1.0) +
+                (p.comments_count * 2.0) +
+                (p.views_count * 0.2) +
+                CASE
+                    WHEN p.created_at > NOW() - INTERVAL '6 hours' THEN 5
+                    WHEN p.created_at > NOW() - INTERVAL '24 hours' THEN 3
+                    WHEN p.created_at > NOW() - INTERVAL '72 hours' THEN 1
+                    ELSE 0
+                END
+            ) DESC
+            """,
+            countQuery = "SELECT COUNT(*) FROM posts p JOIN post_tags pt ON p.id = pt.post_id WHERE LOWER(pt.tag) = LOWER(:tag)",
+            nativeQuery = true)
+    Page<Post> findByTagIgnoreCaseRanked(@Param("tag") String tag, Pageable pageable);
     
     Page<Post> findByAuthorOrderByCreatedAtDesc(User author, Pageable pageable);
     
@@ -58,53 +78,40 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(@Param("query") String title, @Param("query") String content, Pageable pageable);
     
     
-    @Query("SELECT p FROM Post p JOIN FETCH p.author ORDER BY ((p.upvotes - p.downvotes) * 2 + p.viewsCount + p.commentsCount) DESC, p.createdAt DESC")
+    @Query("SELECT p FROM Post p JOIN FETCH p.author ORDER BY p.baseHotnessScore DESC, p.createdAt DESC")
     Page<Post> findTrendingPosts(Pageable pageable);
-
-    // "For You" feed: rank by engagement + recency
-    @Query("SELECT p FROM Post p JOIN FETCH p.author ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
-    Page<Post> findForYouPosts(Pageable pageable);
 
     @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.commentsCount = 0 ORDER BY p.createdAt DESC")
     Page<Post> findUnansweredPosts(Pageable pageable);
 
     // ============================================================================
-    // OPTIMIZED FEED QUERIES - Author is eagerly fetched via Post entity
+    // OPTIMIZED FEED QUERIES - Cursor-Based Pagination
     // ============================================================================
 
-    // Recent posts (excludes own posts and NEWS_DISCUSSION)
-    // Recent posts (excludes own posts and NEWS_DISCUSSION)
+    // Recent posts (excludes own posts and NEWS_DISCUSSION) - Initial Load
     @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.createdAt DESC")
-    Page<Post> findAllExcludingUser(@Param("userId") Long userId, Pageable pageable);
+    List<Post> findRecentExcludingUser(@Param("userId") Long userId, Pageable pageable);
 
-    // For You feed (engagement-ranked, excludes own posts)
-    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY ((p.upvotes - p.downvotes) * 3 + p.commentsCount * 2 + p.viewsCount) DESC, p.createdAt DESC")
-    Page<Post> findForYouPostsExcludingUser(@Param("userId") Long userId, Pageable pageable);
+    // Recent posts - Cursor Load
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION AND p.createdAt < :cursor ORDER BY p.createdAt DESC")
+    List<Post> findRecentExcludingUserWithCursor(@Param("userId") Long userId, @Param("cursor") java.time.Instant cursor, Pageable pageable);
 
-    @Query(value = """
-            SELECT p.* 
-            FROM posts p 
-            JOIN post_tags pt ON p.id = pt.post_id 
-            WHERE LOWER(pt.tag) = LOWER(:tag) 
-            ORDER BY (
-                (p.upvotes * 1.0) + 
-                (p.comments_count * 2.0) + 
-                (p.views_count * 0.2) + 
-                CASE 
-                    WHEN p.created_at > NOW() - INTERVAL '6 hours' THEN 5 
-                    WHEN p.created_at > NOW() - INTERVAL '24 hours' THEN 3 
-                    WHEN p.created_at > NOW() - INTERVAL '72 hours' THEN 1 
-                    ELSE 0 
-                END
-            ) DESC
-            """, 
-            countQuery = "SELECT COUNT(*) FROM posts p JOIN post_tags pt ON p.id = pt.post_id WHERE LOWER(pt.tag) = LOWER(:tag)",
-            nativeQuery = true)
-    Page<Post> findByTagIgnoreCaseRanked(@Param("tag") String tag, Pageable pageable);
-
-    // Unanswered questions (only QUESTION type, excludes own questions and questions with ANY comments)
+    // Unanswered questions - Initial Load
     @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.type = com.example.Qpoint.models.PostType.QUESTION AND p.author.userId <> :userId AND p.commentsCount = 0 ORDER BY p.createdAt DESC")
-    Page<Post> findUnansweredPostsExcludingUser(@Param("userId") Long userId, Pageable pageable);
+    List<Post> findUnansweredExcludingUser(@Param("userId") Long userId, Pageable pageable);
+
+    // Unanswered questions - Cursor Load
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.type = com.example.Qpoint.models.PostType.QUESTION AND p.author.userId <> :userId AND p.commentsCount = 0 AND p.createdAt < :cursor ORDER BY p.createdAt DESC")
+    List<Post> findUnansweredExcludingUserWithCursor(@Param("userId") Long userId, @Param("cursor") java.time.Instant cursor, Pageable pageable);
+
+    // For You Feed (Default fallback without personalization) - Initial Load
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION ORDER BY p.baseHotnessScore DESC, p.id DESC")
+    List<Post> findForYouFallbackExcludingUser(@Param("userId") Long userId, Pageable pageable);
+
+    // For You Feed (Default fallback without personalization) - Cursor Load
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.userId <> :userId AND p.type <> com.example.Qpoint.models.PostType.NEWS_DISCUSSION AND (p.baseHotnessScore < :cursorScore OR (p.baseHotnessScore = :cursorScore AND p.id < :cursorId)) ORDER BY p.baseHotnessScore DESC, p.id DESC")
+    List<Post> findForYouFallbackExcludingUserWithCursor(@Param("userId") Long userId, @Param("cursorScore") Double cursorScore, @Param("cursorId") Long cursorId, Pageable pageable);
+
 
     // Find news discussion post by external article URL
     Optional<Post> findByExternalUrl(String externalUrl);
@@ -123,9 +130,16 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * PERSONALIZED FEED ALGORITHM (Native SQL)
      * Returns IDs of posts, ranked by parameters.
      * Service layer will fetch full entities to ensure eager loading of Authors.
+     * Cursor is based on the dynamically calculated score.
      */
     @Query(value = """
-            SELECT p.id 
+            SELECT p.id,
+            (
+                p.base_hotness_score
+                * (CASE WHEN f.follower_id IS NOT NULL THEN 1.5 ELSE 1.0 END)
+                * POWER(1.3, LEAST(COALESCE(tm.match_count, 0), 3))
+                * (CASE WHEN pv.user_id IS NOT NULL THEN 0.5 ELSE 1.0 END)
+            ) as final_score
             FROM posts p
             LEFT JOIN follows f ON p.author_id = f.following_id AND f.follower_id = :userId
             LEFT JOIN (
@@ -135,26 +149,42 @@ public interface PostRepository extends JpaRepository<Post, Long> {
                 GROUP BY pt.post_id
             ) tm ON p.id = tm.post_id
             LEFT JOIN post_views pv ON p.id = pv.post_id AND pv.user_id = :userId
-            WHERE p.created_at > NOW() - INTERVAL '7 days'
+            WHERE p.created_at > NOW() - INTERVAL '90 days'
               AND p.author_id <> :userId
               AND p.type <> 'NEWS_DISCUSSION'
-            ORDER BY (
-                LN(10 + (p.upvotes * 1) + (p.comments_count * 5) + (p.views_count * 0.1))
-                * POWER(1 + EXTRACT(EPOCH FROM (NOW() - p.created_at))/3600 / 12, -1.5)
-                * (CASE WHEN f.follower_id IS NOT NULL THEN 1.5 ELSE 1.0 END)
-                * POWER(1.3, LEAST(COALESCE(tm.match_count, 0), 3))
-                * (CASE WHEN pv.user_id IS NOT NULL THEN 0.5 ELSE 1.0 END)
-            ) DESC
-            """, 
-            countQuery = """
-            SELECT COUNT(*) 
-            FROM posts p
-            WHERE p.created_at > NOW() - INTERVAL '7 days'
-              AND p.author_id <> :userId
-              AND p.type <> 'NEWS_DISCUSSION'
-            """,
-            nativeQuery = true)
-    Page<Long> findPersonalizedFeedIds(@Param("userId") Long userId, Pageable pageable);
+            ORDER BY final_score DESC, p.id DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Object[]> findPersonalizedFeedIdsInitial(@Param("userId") Long userId, @Param("limit") int limit);
+
+    @Query(value = """
+            SELECT sub.id, sub.final_score FROM (
+                SELECT p.id,
+                (
+                    p.base_hotness_score
+                    * (CASE WHEN f.follower_id IS NOT NULL THEN 1.5 ELSE 1.0 END)
+                    * POWER(1.3, LEAST(COALESCE(tm.match_count, 0), 3))
+                    * (CASE WHEN pv.user_id IS NOT NULL THEN 0.5 ELSE 1.0 END)
+                ) as final_score
+                FROM posts p
+                LEFT JOIN follows f ON p.author_id = f.following_id AND f.follower_id = :userId
+                LEFT JOIN (
+                    SELECT pt.post_id, COUNT(ut.topic_id) as match_count
+                    FROM post_topics pt
+                    JOIN user_topics ut ON pt.topic_id = ut.topic_id AND ut.user_id = :userId
+                    GROUP BY pt.post_id
+                ) tm ON p.id = tm.post_id
+                LEFT JOIN post_views pv ON p.id = pv.post_id AND pv.user_id = :userId
+                WHERE p.created_at > NOW() - INTERVAL '90 days'
+                  AND p.author_id <> :userId
+                  AND p.type <> 'NEWS_DISCUSSION'
+            ) sub
+            WHERE sub.final_score < :cursorScore
+               OR (sub.final_score = :cursorScore AND sub.id < :cursorId)
+            ORDER BY sub.final_score DESC, sub.id DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Object[]> findPersonalizedFeedIdsWithCursor(@Param("userId") Long userId, @Param("cursorScore") Double cursorScore, @Param("cursorId") Long cursorId, @Param("limit") int limit);
 
     @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.id IN :ids")
     List<Post> findByIdsWithAuthor(@Param("ids") List<Long> ids);

@@ -117,10 +117,12 @@ export const authApi = {
 };
 
 export const feedApi = {
-  getFeed: (tab = 'FOR_YOU', page = 0, size = 10) => {
+  getFeed: (tab = 'FOR_YOU', cursor = null, size = 10) => {
     const params = new URLSearchParams();
     params.append('tab', tab);
-    params.append('page', page);
+    if (cursor) {
+      params.append('cursor', cursor);
+    }
     params.append('size', size);
     return get(`/api/feed?${params.toString()}`, true);
   },

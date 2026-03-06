@@ -1,0 +1,21 @@
+[ERROR] COMPILATION ERROR : 
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[1,1] illegal character: '\ufeff'
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[1,10] class, interface, enum, or record expected
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[3,1] class, interface, enum, or record expected
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[4,1] class, interface, enum, or record expected
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[5,1] class, interface, enum, or record expected
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[6,1] class, interface, enum, or record expected
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile (default-compile) on project Qpoint: Compilation failure: Compilation failure: 
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[1,1] illegal character: '\ufeff'
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[1,10] class, interface, enum, or record expected
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[3,1] class, interface, enum, or record expected
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[4,1] class, interface, enum, or record expected
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[5,1] class, interface, enum, or record expected
+[ERROR] /E:/Project_1/backend/src/main/java/com/example/Qpoint/service/PostScoreService.java:[6,1] class, interface, enum, or record expected
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

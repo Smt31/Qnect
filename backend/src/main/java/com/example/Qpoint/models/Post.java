@@ -62,6 +62,10 @@ public class Post {
     private Integer downvotes = 0;
 
     @Builder.Default
+    @Column(name = "base_hotness_score", nullable = false)
+    private Double baseHotnessScore = 0.0;
+
+    @Builder.Default
     @Column(nullable = false)
     private Integer commentsCount = 0;
 

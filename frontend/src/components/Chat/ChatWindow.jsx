@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { chatApi, groupApi } from '../../api';
 import { useQueryClient } from '@tanstack/react-query';
 import webSocketService from '../../services/WebSocketService';
@@ -30,6 +31,7 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
     const prevScrollHeightRef = useRef(0);
     const isInitialLoadRef = useRef(true);
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     const prevMessagesLength = useRef(0);
 
@@ -443,11 +445,11 @@ const ChatWindow = ({ currentUser, selectedUser, selectedGroup, messages, onSend
                                                     <img src={msg.attachmentUrl || msg.content} className="rounded-xl max-h-60 shadow-sm cursor-pointer" onClick={() => setSelectedImage(msg.attachmentUrl || msg.content)} />
                                                 ) : msg.type === 'POST_SHARE' && msg.sharedPost ? (
                                                     <a
-                                                        href={`/post/${msg.sharedPost.id}`}
+                                                        href={`/question/${msg.sharedPost.id}`}
                                                         className="block no-underline"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            window.location.href = `/post/${msg.sharedPost.id}`;
+                                                            navigate(`/question/${msg.sharedPost.id}`);
                                                         }}
                                                     >
                                                         <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 min-w-[200px] max-w-[260px]">

@@ -25,12 +25,27 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState(savedState?.activeTab || 'FOR_YOU');
 
   const { data: currentUser } = useCurrentUser();
-  const { data: feedData, isLoading: loading, isError, refetch, isRefetching } = useFeed(activeTab, 0, 10);
+  const {
+    data: feedData,
+    isLoading: loading,
+    isError,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useFeed(activeTab, 10);
   const { data: trendingData } = useTrending();
   const { data: suggestionsData } = useUserSuggestions();
 
+  // Combine feed pages
+  const combinedFeed = useMemo(() => {
+    if (!feedData?.pages) return [];
+    return feedData.pages.flatMap(page => page.feed || []);
+  }, [feedData]);
+
   // Fallback to currentUser if feedData isn't loaded yet
-  const user = feedData?.user || currentUser;
+  const user = feedData?.pages?.[0]?.user || currentUser;
 
   useEffect(() => {
     const token = getAuthToken();
@@ -59,6 +74,22 @@ export default function HomePage() {
       setTimeout(() => window.scrollTo(0, savedState.scrollY), 0);
     }
   }, [savedState]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop
+        >= document.documentElement.offsetHeight - 500
+      ) {
+        if (hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Save state to session storage before unmount or navigation
   useEffect(() => {
@@ -116,7 +147,7 @@ export default function HomePage() {
 
   const handleBookmark = async (postId) => {
     // Optimistic updates are now handled by the bookmark hooks
-    const post = feedData?.feed?.find(p => p.id === postId);
+    const post = combinedFeed.find(p => p.id === postId);
     const wasBookmarked = post?.isBookmarked || false;
 
     try {
@@ -132,11 +163,10 @@ export default function HomePage() {
   };
 
   const featuredPost = useMemo(() => {
-    const posts = feedData?.feed || [];
-    if (!posts.length) return null;
-    const firstWithImage = posts.find(p => p.imageUrl);
+    if (!combinedFeed.length) return null;
+    const firstWithImage = combinedFeed.find(p => p.imageUrl);
     return firstWithImage || null;
-  }, [feedData]);
+  }, [combinedFeed]);
 
   const deleteQuestionMutation = useDeleteQuestion();
 
@@ -245,35 +275,42 @@ export default function HomePage() {
                   Try Again
                 </button>
               </div>
-            ) : feedData?.feed && feedData.feed.length > 0 ? (
-              feedData.feed
-                .filter(p => !featuredPost || p.id !== featuredPost.id)
-                .map((post) => (
-                  <FeedCard
-                    key={post.id}
-                    post={post}
-                    currentUserId={user?.userId}
-                    onVote={handleVote}
-                    onDelete={handleDeletePost}
-                    onShare={handleShare}
-                    topRightElement={
-                      <button
-                        className={`flex flex-col items-center justify-center w-10 h-10 rounded-full border transition-all ${post.isBookmarked
-                          ? 'bg-yellow-50 text-yellow-500 border-yellow-200'
-                          : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleBookmark(post.id);
-                        }}
-                        title={post.isBookmarked ? "Remove Bookmark" : "Bookmark"}
-                      >
-                        <svg className="w-5 h-5" fill={post.isBookmarked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                        </svg>
-                      </button>
-                    }
-                  />
-                ))
+            ) : combinedFeed && combinedFeed.length > 0 ? (
+              <>
+                {combinedFeed
+                  .filter(p => !featuredPost || p.id !== featuredPost.id)
+                  .map((post) => (
+                    <FeedCard
+                      key={post.id}
+                      post={post}
+                      currentUserId={user?.userId}
+                      onVote={handleVote}
+                      onDelete={handleDeletePost}
+                      onShare={handleShare}
+                      topRightElement={
+                        <button
+                          className={`flex flex-col items-center justify-center w-10 h-10 rounded-full border transition-all ${post.isBookmarked
+                            ? 'bg-yellow-50 text-yellow-500 border-yellow-200'
+                            : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBookmark(post.id);
+                          }}
+                          title={post.isBookmarked ? "Remove Bookmark" : "Bookmark"}
+                        >
+                          <svg className="w-5 h-5" fill={post.isBookmarked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                          </svg>
+                        </button>
+                      }
+                    />
+                  ))}
+                {isFetchingNextPage && (
+                  <div className="py-4 text-center">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-red-500 border-t-transparent"></div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

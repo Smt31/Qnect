@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import {
   get, post, put, del,
   authApi, feedApi, questionApi, answerApi, commentApi,
@@ -153,10 +153,11 @@ export const useVerifyOtp = () => {
 };
 
 // Feed Queries
-export const useFeed = (tab = 'FOR_YOU', page = 0, size = 10) => {
-  return useQuery({
-    queryKey: ['feed', tab, page, size],
-    queryFn: () => feedApi.getFeed(tab, page, size),
+export const useFeed = (tab = 'FOR_YOU', size = 10) => {
+  return useInfiniteQuery({
+    queryKey: ['feed', tab, size],
+    queryFn: ({ pageParam = null }) => feedApi.getFeed(tab, pageParam, size),
+    getNextPageParam: (lastPage) => lastPage?.nextCursor || undefined,
     staleTime: 5 * 60 * 1000, // 5 minutes
     cacheTime: 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: false,
@@ -250,6 +251,18 @@ export const useDeleteQuestion = () => {
           return {
             ...oldData,
             content: oldData.content.filter(post => post.id !== deletedId)
+          };
+        }
+        if (oldData.pages) {
+          return {
+            ...oldData,
+            pages: oldData.pages.map(page => {
+              if (!page.feed) return page;
+              return {
+                ...page,
+                feed: page.feed.filter(post => post.id !== deletedId)
+              }
+            })
           };
         }
         return oldData;
@@ -449,13 +462,17 @@ export const useVoteQuestion = () => {
       // If still not found, try to find in feed cache
       if (previousFeedQueries && previousFeedQueries.length > 0) {
         for (const [queryKey, queryData] of previousFeedQueries) {
-          if (queryData && queryData.feed) {
-            const post = queryData.feed.find(p => p.id === postId);
-            if (post) {
-              currentStatus = post.currentUserVoteStatus || currentStatus;
-              currentUpvotes = post.upvotes ?? currentUpvotes;
-              currentDownvotes = post.downvotes ?? currentDownvotes;
-              break;
+          if (queryData && queryData.pages) {
+            for (const page of queryData.pages) {
+              if (page && page.feed) {
+                const post = page.feed.find(p => p.id === postId);
+                if (post) {
+                  currentStatus = post.currentUserVoteStatus || currentStatus;
+                  currentUpvotes = post.upvotes ?? currentUpvotes;
+                  currentDownvotes = post.downvotes ?? currentDownvotes;
+                  break;
+                }
+              }
             }
           }
         }
@@ -512,18 +529,24 @@ export const useVoteQuestion = () => {
 
       // Update ALL feed caches (for different tabs like FOR_YOU, RECENT, etc.)
       queryClient.setQueriesData({ queryKey: ['feed'] }, (oldData) => {
-        if (!oldData || !oldData.feed) return oldData;
+        if (!oldData || !oldData.pages) return oldData;
         return {
           ...oldData,
-          feed: oldData.feed.map(post => {
-            if (post.id !== postId) return post;
+          pages: oldData.pages.map(page => {
+            if (!page.feed) return page;
             return {
-              ...post,
-              currentUserVoteStatus: newStatus,
-              upvotes: newUpvotes,
-              downvotes: newDownvotes,
-            };
-          }),
+              ...page,
+              feed: page.feed.map(post => {
+                if (post.id !== postId) return post;
+                return {
+                  ...post,
+                  currentUserVoteStatus: newStatus,
+                  upvotes: newUpvotes,
+                  downvotes: newDownvotes,
+                };
+              }),
+            }
+          })
         };
       });
 
@@ -630,12 +653,18 @@ export const useBookmarkPost = () => {
 
       // Update ALL feed caches
       queryClient.setQueriesData({ queryKey: ['feed'] }, (oldData) => {
-        if (!oldData || !oldData.feed) return oldData;
+        if (!oldData || !oldData.pages) return oldData;
         return {
           ...oldData,
-          feed: oldData.feed.map(post =>
-            post.id === postId ? { ...post, isBookmarked: true } : post
-          ),
+          pages: oldData.pages.map(page => {
+            if (!page.feed) return page;
+            return {
+              ...page,
+              feed: page.feed.map(post =>
+                post.id === postId ? { ...post, isBookmarked: true } : post
+              )
+            }
+          })
         };
       });
 
@@ -709,12 +738,18 @@ export const useUnbookmarkPost = () => {
 
       // Update ALL feed caches
       queryClient.setQueriesData({ queryKey: ['feed'] }, (oldData) => {
-        if (!oldData || !oldData.feed) return oldData;
+        if (!oldData || !oldData.pages) return oldData;
         return {
           ...oldData,
-          feed: oldData.feed.map(post =>
-            post.id === postId ? { ...post, isBookmarked: false } : post
-          ),
+          pages: oldData.pages.map(page => {
+            if (!page.feed) return page;
+            return {
+              ...page,
+              feed: page.feed.map(post =>
+                post.id === postId ? { ...post, isBookmarked: false } : post
+              )
+            }
+          })
         };
       });
 
