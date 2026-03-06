@@ -1,4 +1,4 @@
-# Qpoint
+# Qnect
 > A modern social platform for real-time interaction, community building, and AI-assisted engagement.
 
 ![Java](https://img.shields.io/badge/Java-21-orange?style=flat-square)
