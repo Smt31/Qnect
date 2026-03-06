@@ -275,7 +275,7 @@ export default function LeftSidebar({ user }) {
                                     <circle cx="16" cy="22" r="2" fill="white" />
                                 </svg>
                             </div>
-                            <span className="font-bold text-lg bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">QPOINT</span>
+                            <span className="font-bold text-lg bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent">Qnect</span>
                         </div>
                         <button
                             onClick={close}

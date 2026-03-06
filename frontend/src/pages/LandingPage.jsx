@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAuthToken } from '../api';
+import Logo from '../components/Logo';
 import './LandingPage.css';
 
 export default function LandingPage() {
@@ -20,13 +21,8 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center shadow-lg shadow-red-500/20">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span className="text-xl font-bold text-gray-900">QPoint</span>
+            <Link to="/" className="flex items-center">
+              <Logo />
             </Link>
 
             <nav className="hidden md:flex items-center gap-8">
@@ -71,7 +67,7 @@ export default function LandingPage() {
               </h1>
 
               <p className="text-lg text-gray-600 mb-8 max-w-xl mx-auto lg:mx-0">
-                QPoint helps you ask, answer, and discover knowledge with AI-powered insights
+                Qnect helps you ask, answer, and discover knowledge with AI-powered insights
                 and a trusted community of experts.
               </p>
 
@@ -151,7 +147,7 @@ export default function LandingPage() {
               FEATURES
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose QPoint?
+              Why Choose Qnect?
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Built for meaningful discussions, fast answers, and trusted knowledge sharing.
@@ -205,13 +201,8 @@ export default function LandingPage() {
       <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-gray-100">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span className="text-lg font-bold text-gray-900">QPoint</span>
+            <div className="flex items-center">
+              <Logo size={36} fontSize="text-xl" />
             </div>
 
             <div className="flex items-center gap-6 text-sm text-gray-500">
@@ -221,7 +212,7 @@ export default function LandingPage() {
             </div>
 
             <div className="text-sm text-gray-400">
-              © 2026 QPoint. All rights reserved.
+              © 2026 Qnect. All rights reserved.
             </div>
           </div>
         </div>

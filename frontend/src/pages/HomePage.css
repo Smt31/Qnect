@@ -1,4 +1,4 @@
-/* HomePage Styles - QPOINT Design System - Pixel Perfect Match */
+/* HomePage Styles - Qnect Design System - Pixel Perfect Match */
 
 .home-page {
   min-height: 100vh;
@@ -931,6 +931,7 @@ button[type="submit"]:hover {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -1081,11 +1082,11 @@ button[type="submit"]:hover {
     padding: 0 32px;
     gap: 20px;
   }
-  
+
   .navbar-container {
     padding: 0 32px;
   }
-  
+
   .search-bar {
     max-width: 300px;
   }
@@ -1097,19 +1098,19 @@ button[type="submit"]:hover {
     padding: 0 24px;
     gap: 16px;
   }
-  
+
   .left-sidebar {
     display: none;
   }
-  
+
   .navbar-container {
     padding: 0 24px;
   }
-  
+
   .search-bar {
     max-width: 200px;
   }
-  
+
   /* Removed ask-question-btn styles */
 }
 
@@ -1119,61 +1120,61 @@ button[type="submit"]:hover {
     padding: 0 16px;
     gap: 16px;
   }
-  
+
   .right-sidebar {
     display: none;
   }
-  
+
   .navbar-container {
     padding: 0 16px;
     flex-wrap: wrap;
     gap: 12px;
   }
-  
+
   .navbar-left {
     gap: 16px;
     flex: 1;
     min-width: 0;
   }
-  
+
   .search-bar {
     max-width: none;
     flex: 1;
     min-width: 0;
   }
-  
+
   .search-input {
     font-size: 13px;
   }
-  
+
   .logo-text {
     font-size: 18px;
   }
-  
+
   .main-feed {
     gap: 16px;
   }
-  
+
   .ask-box {
     padding: 16px;
   }
-  
+
   .feed-item {
     padding: 16px 0;
   }
-  
+
   .feed-item-header {
     margin-bottom: 12px;
   }
-  
+
   .feed-item-content {
     margin-bottom: 12px;
   }
-  
+
   .feed-tags {
     margin-bottom: 12px;
   }
-  
+
   .feed-item-footer {
     padding-top: 12px;
   }
@@ -1184,97 +1185,97 @@ button[type="submit"]:hover {
     height: auto;
     padding: 12px 0;
   }
-  
+
   .navbar-container {
     flex-direction: column;
     gap: 12px;
     height: auto;
   }
-  
+
   .navbar-left {
     width: 100%;
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .search-bar {
     width: 100%;
     max-width: none;
   }
-  
+
   .navbar-right {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .ask-box-actions .ask-action-icon {
     display: none;
   }
-  
+
   .feed-item-footer {
     flex-wrap: wrap;
     gap: 8px;
   }
-  
+
   .share-btn {
     margin-left: 0;
   }
-  
+
   .user-profile-card {
     padding: 20px;
   }
-  
+
   .avatar-large {
     width: 56px;
     height: 56px;
     margin: 0 auto 12px;
   }
-  
+
   .username {
     font-size: 16px;
     margin: 0 0 6px;
   }
-  
+
   .verified-badge {
     padding: 3px 8px;
     font-size: 11px;
     margin-bottom: 12px;
   }
-  
+
   .user-stats {
     gap: 6px;
     margin-top: 12px;
     padding-top: 12px;
   }
-  
+
   .stat-value {
     font-size: 14px;
   }
-  
+
   .stat-label {
     font-size: 11px;
   }
-  
+
   .sidebar-nav {
     padding: 10px;
   }
-  
+
   .nav-item {
     padding: 10px 14px;
   }
-  
+
   .topics-section {
     padding: 16px;
   }
-  
+
   .topics-title {
     margin: 0 0 12px;
   }
-  
+
   .topics-list {
     gap: 10px;
   }
-  
+
   .topic-item {
     padding: 6px 0;
   }

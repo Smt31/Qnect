@@ -29,7 +29,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
             <div className="feedback-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="feedback-header">
                     <h2>Send Feedback</h2>
-                    <p>Let us know how we can improve Qpoint</p>
+                    <p>Let us know how we can improve Qnect</p>
                 </div>
 
                 <div className="feedback-options">

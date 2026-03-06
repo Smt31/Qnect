@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { newsApi, voteApi } from '../../api';
 
 export default function NewsCard({ article, onOpenDiscussion }) {
     const [showContext, setShowContext] = useState(false);
     const [context, setContext] = useState(null);
     const [loadingContext, setLoadingContext] = useState(false);
+    const [displayText, setDisplayText] = useState('');
+    const [isTyping, setIsTyping] = useState(false);
+    const typewriterIntervalRef = useRef(null);
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
@@ -17,11 +20,28 @@ export default function NewsCard({ article, onOpenDiscussion }) {
         });
     };
 
+    // Cleanup interval on unmount
+    useEffect(() => {
+        return () => {
+            if (typewriterIntervalRef.current) {
+                clearInterval(typewriterIntervalRef.current);
+            }
+        };
+    }, []);
+
     const handleGetContext = async (e) => {
         e.stopPropagation();
 
         if (context) {
-            setShowContext(!showContext);
+            const newShow = !showContext;
+            setShowContext(newShow);
+            if (newShow) startTypewriter(context);
+            else {
+                if (typewriterIntervalRef.current) {
+                    clearInterval(typewriterIntervalRef.current);
+                }
+                setDisplayText('');
+            }
             return;
         }
 
@@ -34,13 +54,44 @@ export default function NewsCard({ article, onOpenDiscussion }) {
             );
             setContext(result.context);
             setShowContext(true);
+            startTypewriter(result.context);
         } catch (error) {
             console.error('Failed to get AI context:', error);
-            setContext('Unable to generate AI context. Please try again later.');
+            const errorMsg = 'Unable to generate AI context. Please try again later.';
+            setContext(errorMsg);
             setShowContext(true);
+            startTypewriter(errorMsg);
         } finally {
             setLoadingContext(false);
         }
+    };
+
+    const startTypewriter = (text) => {
+        if (!text) return;
+
+        if (typewriterIntervalRef.current) {
+            clearInterval(typewriterIntervalRef.current);
+        }
+
+        setDisplayText('');
+        setIsTyping(true);
+
+        let i = 0;
+        const speed = 15; // Adjusted speed for better legibility and stability
+
+        typewriterIntervalRef.current = setInterval(() => {
+            if (i < text.length) {
+                const char = text.charAt(i);
+                setDisplayText(prev => prev + char);
+                i++;
+            } else {
+                if (typewriterIntervalRef.current) {
+                    clearInterval(typewriterIntervalRef.current);
+                    typewriterIntervalRef.current = null;
+                }
+                setIsTyping(false);
+            }
+        }, speed);
     };
 
     const handleDiscuss = (e) => {
@@ -62,11 +113,11 @@ export default function NewsCard({ article, onOpenDiscussion }) {
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+        <div className={`relative bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow ${showContext ? 'z-[60]' : 'z-0'}`}>
             {/* Image */}
             {article.imageUrl && (
                 <div
-                    className="h-48 bg-gray-100 cursor-pointer overflow-hidden"
+                    className="h-48 bg-gray-100 cursor-pointer overflow-hidden rounded-t-xl"
                     onClick={handleOpenArticle}
                 >
                     <img
@@ -108,19 +159,6 @@ export default function NewsCard({ article, onOpenDiscussion }) {
                     {article.description}
                 </p>
 
-                {/* AI Context Section */}
-                {showContext && context && (
-                    <div className="mb-3 p-3 bg-violet-50 rounded-lg border border-violet-100">
-                        <div className="flex items-center gap-2 mb-2">
-                            <svg className="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                            </svg>
-                            <span className="text-xs font-semibold text-violet-700">AI Context</span>
-                        </div>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{context}</p>
-                    </div>
-                )}
-
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                     <button
@@ -135,7 +173,7 @@ export default function NewsCard({ article, onOpenDiscussion }) {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                             </svg>
                         )}
-                        {showContext ? 'Hide Context' : 'AI Context'}
+                        AI Context
                     </button>
 
                     <button
@@ -167,6 +205,63 @@ export default function NewsCard({ article, onOpenDiscussion }) {
                     </a>
                 </div>
             </div>
+
+            {/* AI Context Card - Positioned BESIDE the news */}
+            {showContext && context && (
+                <div
+                    className="absolute left-full top-0 ml-4 w-80 bg-white/95 backdrop-blur-md border border-violet-100 rounded-2xl shadow-xl z-[100] overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300 pointer-events-auto hidden lg:flex flex-col h-full"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="p-4 border-b border-violet-50 bg-violet-50/30 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                            </svg>
+                            <span className="text-sm font-bold text-violet-700">CUE Context</span>
+                        </div>
+                        <button
+                            onClick={() => setShowContext(false)}
+                            className="p-1 rounded-full hover:bg-violet-100 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div className="p-4 flex-1 overflow-y-auto">
+                        <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                            {displayText}
+                            {isTyping && <span className="inline-block w-1 h-4 ml-1 bg-violet-500 animate-pulse align-middle" />}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Mobile/Small Screen Fallback Overlay */}
+            {showContext && context && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-end justify-center p-4 lg:hidden bg-black/20 backdrop-blur-sm"
+                    onClick={() => setShowContext(false)}
+                >
+                    <div
+                        className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl p-6 flex flex-col max-h-[70vh] animate-in slide-in-from-bottom-full duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+                            <span className="text-sm font-bold text-violet-700">AI Context</span>
+                            <button onClick={() => setShowContext(false)} className="text-gray-400">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto flex-1 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                            {displayText}
+                            {isTyping && <span className="inline-block w-1 h-4 ml-1 bg-violet-500 animate-pulse align-middle" />}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -123,7 +123,7 @@ export default function VerifyPage() {
 
       if (purpose === 'REGISTER') {
         // Load pending registration data from sessionStorage
-        const pendingDataStr = sessionStorage.getItem('qpoint_pending_registration');
+        const pendingDataStr = sessionStorage.getItem('qnect_pending_registration');
         if (!pendingDataStr) {
           setError('Registration data not found. Please start over.');
           return;
@@ -177,7 +177,7 @@ export default function VerifyPage() {
 
         // Remove pending registration data if it exists
         if (purpose === 'REGISTER') {
-          sessionStorage.removeItem('qpoint_pending_registration');
+          sessionStorage.removeItem('qnect_pending_registration');
         }
 
         navigate('/home');
@@ -199,19 +199,20 @@ export default function VerifyPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-pink-50 to-white px-4">
       <div className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-8">
 
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-red-500 mb-6 mx-auto relative animate-pulse">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-            <div className="absolute inset-0 rounded-full border-2 border-red-100 animate-ping"></div>
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-rose-50 text-rose-500 mb-8 mx-auto relative animate-pulse shadow-sm border border-rose-100/50">
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+            <div className="absolute inset-0 rounded-3xl border-2 border-rose-200/50 animate-ping"></div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Verify Account</h1>
-          <p className="text-gray-500 mt-2 text-sm">
-            Enter the code sent to <span className="font-semibold text-gray-900">{maskedEmail}</span>
+          <h1 className="text-3xl font-black tracking-tight text-gray-900 mb-2 font-['Outfit'] bg-gradient-to-br from-rose-500 via-rose-600 to-pink-700 bg-clip-text text-transparent">Verify Account</h1>
+          <p className="text-gray-500 mt-2 text-sm font-medium leading-relaxed">
+            Enter the code sent to <br />
+            <span className="font-bold text-gray-900">{maskedEmail}</span>
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="flex justify-center gap-2">
+          <div className="flex justify-center gap-3">
             {otp.map((digit, index) => (
               <input
                 key={index}
@@ -219,7 +220,7 @@ export default function VerifyPage() {
                 type="text"
                 inputMode="numeric"
                 maxLength="1"
-                className="w-12 h-14 text-center text-xl font-bold bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-gray-900 shadow-sm"
+                className="w-12 h-16 text-center text-2xl font-black bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-400 focus:bg-white transition-all text-gray-900 shadow-sm"
                 value={digit}
                 onChange={(e) => handleOtpChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
@@ -238,10 +239,25 @@ export default function VerifyPage() {
 
           <button
             type="submit"
-            className="w-full py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white font-medium rounded-lg hover:from-red-600 hover:to-pink-600 focus:ring-4 focus:ring-red-500/20 transition-all shadow-lg shadow-red-500/20 disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full py-4 bg-gradient-to-br from-rose-500 via-rose-600 to-pink-600 text-white font-bold rounded-2xl hover:from-rose-600 hover:to-pink-700 focus:ring-4 focus:ring-rose-500/20 transition-all shadow-[0_8px_20px_-6px_rgba(244,63,94,0.4)] hover:shadow-[0_12px_24px_-6px_rgba(244,63,94,0.5)] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed group"
             disabled={loading || otp.join('').length !== OTP_LENGTH}
           >
-            {loading ? 'Verifying...' : 'Verify Account'}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Verifying...
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                Verify Account
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </span>
+            )}
           </button>
         </form>
 

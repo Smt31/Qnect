@@ -1,0 +1,34 @@
+<svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- White Background Shape -->
+    <rect width="100" height="100" rx="16" fill="white" />
+    
+    <!-- Red Accent/Completion Line (Subtle) -->
+    <path
+        d="M 67 70 C 75 62, 78 55, 78 48 C 78 32, 66 22, 48 22"
+        stroke="#fecaca"
+        strokeWidth="12"
+        fill="none"
+        strokeLinecap="round"
+    />
+
+    <!-- Main Q Body - Solid Vibrant Rose/Red -->
+    <path
+        d="M 48 22 C 32 22, 20 34, 20 50 C 20 66, 32 78, 48 78 C 55 78, 62 75, 67 70"
+        stroke="#f43f5e"
+        strokeWidth="18"
+        fill="none"
+        strokeLinecap="round"
+    />
+    
+    <!-- Q Tail - Solid Vibrant Rose/Red -->
+    <path
+        d="M 52 65 C 58 65, 75 75, 80 85"
+        stroke="#f43f5e"
+        strokeWidth="18"
+        strokeLinecap="round"
+    />
+
+    <!-- Network nodes - Red -->
+    <circle cx="85" cy="45" r="7" fill="#f43f5e" />
+    <circle cx="75" cy="25" r="7" fill="#f43f5e" />
+</svg>

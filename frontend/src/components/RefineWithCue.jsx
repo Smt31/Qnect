@@ -55,7 +55,7 @@ export default function RefineWithCue({
 
             {/* Slide-in Panel */}
             <div
-                className="fixed right-0 top-0 bottom-0 w-[360px] max-w-[90vw] bg-white shadow-2xl z-50 flex flex-col animate-slide-in-right"
+                className="fixed right-0 top-0 bottom-0 w-[480px] max-w-[90vw] bg-white shadow-2xl z-50 flex flex-col animate-slide-in-right"
                 style={{
                     animation: 'slideInRight 0.25s ease-out'
                 }}
@@ -63,9 +63,18 @@ export default function RefineWithCue({
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-violet-50 to-indigo-50">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-900 shadow-lg shadow-purple-500/20 ring-1 ring-purple-500/30 overflow-hidden relative group">
+                            <div className="absolute inset-0 bg-gradient-to-tr from-indigo-900/50 to-purple-900/50 opacity-50"></div>
+                            <svg className="w-6 h-6 relative z-10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="url(#q-gradient-header)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M16 16L19.5 19.5" stroke="url(#q-gradient-header)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <defs>
+                                    <linearGradient id="q-gradient-header" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                        <stop offset="0%" stopColor="#22d3ee" />
+                                        <stop offset="50%" stopColor="#a855f7" />
+                                        <stop offset="100%" stopColor="#ec4899" />
+                                    </linearGradient>
+                                </defs>
                             </svg>
                         </div>
                         <div>
@@ -87,13 +96,19 @@ export default function RefineWithCue({
                 <div className="flex-1 overflow-y-auto p-5">
                     {loading && (
                         <div className="flex flex-col items-center justify-center py-12">
-                            <div className="relative">
-                                <div className="w-12 h-12 rounded-full border-4 border-violet-100 border-t-violet-500 animate-spin" />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <svg className="w-5 h-5 text-violet-500" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                                    </svg>
-                                </div>
+                            <div className="w-20 h-20 rounded-full flex items-center justify-center bg-slate-900 shadow-xl shadow-purple-500/20 ring-2 ring-purple-500/30 overflow-hidden relative group animate-pulse">
+                                <div className="absolute inset-0 bg-gradient-to-tr from-indigo-900/50 to-purple-900/50 opacity-50"></div>
+                                <svg className="w-10 h-10 relative z-10 animate-spin-slow" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="url(#q-gradient-thinking)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    <path d="M16 16L19.5 19.5" stroke="url(#q-gradient-thinking)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    <defs>
+                                        <linearGradient id="q-gradient-thinking" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                            <stop offset="0%" stopColor="#22d3ee" />
+                                            <stop offset="50%" stopColor="#a855f7" />
+                                            <stop offset="100%" stopColor="#ec4899" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
                             </div>
                             <p className="mt-4 text-sm text-gray-500 font-medium">CUE is thinking...</p>
                             <p className="text-xs text-gray-400 mt-1">Polishing your content</p>
@@ -122,12 +137,12 @@ export default function RefineWithCue({
                                         onClick={() => {
                                             onUseTitle(result.improvedTitle);
                                         }}
-                                        className="px-3 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
+                                        className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm transform active:scale-95"
                                     >
                                         Use this title
                                     </button>
                                 </div>
-                                <p className="text-gray-900 font-medium leading-relaxed">{result.improvedTitle}</p>
+                                <p className="text-gray-900 font-semibold text-base leading-relaxed">{result.improvedTitle}</p>
                             </div>
 
                             {/* Improved Description */}
@@ -138,7 +153,7 @@ export default function RefineWithCue({
                                         onClick={() => {
                                             onUseDescription(result.improvedDescription);
                                         }}
-                                        className="px-3 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
+                                        className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm transform active:scale-95"
                                     >
                                         Use this description
                                     </button>
@@ -148,19 +163,19 @@ export default function RefineWithCue({
 
                             {/* Suggested Topics */}
                             {result.suggestedTopics && result.suggestedTopics.length > 0 && onUseTopics && (
-                                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                                <div className="bg-violet-50 rounded-xl p-4 border border-violet-100">
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Suggested Topics</span>
+                                        <span className="text-xs font-semibold text-violet-600 uppercase tracking-wide">Suggested Topics</span>
                                         <button
                                             onClick={() => {
                                                 onUseTopics(result.suggestedTopics);
                                             }}
-                                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
+                                            className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm transform active:scale-95"
                                         >
                                             Use these topics
                                         </button>
                                     </div>
-                                    <p className="text-gray-900 font-medium leading-relaxed">{result.suggestedTopics.join(', ')}</p>
+                                    <p className="text-gray-900 font-medium text-sm leading-relaxed">{result.suggestedTopics.join(', ')}</p>
                                 </div>
                             )}
 
@@ -207,6 +222,13 @@ export default function RefineWithCue({
             transform: translateX(0);
             opacity: 1;
           }
+        }
+        @keyframes spinSlow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spinSlow 4s linear infinite;
         }
       `}</style>
         </>

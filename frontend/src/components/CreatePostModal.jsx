@@ -130,14 +130,14 @@ export default function CreatePostModal() {
                         onClick={() => setActiveCreateTab('QUESTION')}
                     >
                         Add Question
-                        {activeCreateTab === 'QUESTION' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
+                        {activeCreateTab === 'QUESTION' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-rose-500 to-pink-500"></div>}
                     </button>
                     <button
                         className={`flex-1 py-4 text-center font-semibold text-sm transition-colors relative ${activeCreateTab === 'POST' ? 'text-gray-900 bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                         onClick={() => setActiveCreateTab('POST')}
                     >
                         Create Post
-                        {activeCreateTab === 'POST' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
+                        {activeCreateTab === 'POST' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-rose-500 to-pink-500"></div>}
                     </button>
                     <button
                         onClick={closePostModal}
@@ -169,7 +169,7 @@ export default function CreatePostModal() {
                                 value={questionTitle}
                                 onChange={(e) => setQuestionTitle(e.target.value)}
                                 placeholder={activeCreateTab === 'QUESTION' ? 'Start your question with "What", "How", "Why", etc.' : "Post title"}
-                                className="w-full text-lg font-semibold placeholder-gray-400 border-b border-gray-200 pb-2 focus:outline-none focus:border-blue-500 transition-colors bg-transparent"
+                                className="w-full text-lg font-semibold placeholder-gray-400 border-b border-gray-200 pb-2 focus:outline-none focus:border-rose-400 transition-colors bg-transparent"
                                 required
                                 autoFocus
                             />
@@ -199,7 +199,7 @@ export default function CreatePostModal() {
                                 className="flex items-center gap-2 text-gray-600 text-sm font-medium px-3 py-1 bg-white rounded border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-colors"
                             >
                                 {isUploading ? (
-                                    <span className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin"></span>
+                                    <span className="w-4 h-4 border-2 border-gray-400 border-t-rose-500 rounded-full animate-spin"></span>
                                 ) : (
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -222,7 +222,7 @@ export default function CreatePostModal() {
                                 value={tags}
                                 onChange={(e) => setTags(e.target.value)}
                                 placeholder="Tags (comma separated)"
-                                className="w-full p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all text-sm"
+                                className="w-full p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-100 focus:border-rose-300 transition-all text-sm"
                             />
                         </div>
 
@@ -232,10 +232,18 @@ export default function CreatePostModal() {
                                 type="button"
                                 onClick={() => setRefineOpen(true)}
                                 disabled={!questionTitle && !questionContent}
-                                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-transparent bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed group"
                             >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="url(#cue-btn-gradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    <path d="M16 16L19.5 19.5" stroke="url(#cue-btn-gradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    <defs>
+                                        <linearGradient id="cue-btn-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                            <stop offset="0%" stopColor="#22d3ee" />
+                                            <stop offset="50%" stopColor="#a855f7" />
+                                            <stop offset="100%" stopColor="#ec4899" />
+                                        </linearGradient>
+                                    </defs>
                                 </svg>
                                 Refine with CUE
                             </button>
@@ -250,7 +258,7 @@ export default function CreatePostModal() {
                                 </button>
                                 <button
                                     type="submit"
-                                    className={`px-6 py-2 text-white font-medium rounded-full shadow-md hover:shadow-lg transition-all transform active:scale-95 ${activeCreateTab === 'QUESTION' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'}`}
+                                    className="px-6 py-2 text-white font-bold rounded-full shadow-md hover:shadow-lg transition-all transform active:scale-95 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
                                     disabled={createLoading}
                                 >
                                     {createLoading ? 'Publishing...' : (activeCreateTab === 'QUESTION' ? 'Add question' : 'Post')}
